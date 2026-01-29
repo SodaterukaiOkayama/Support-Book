@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>サポートブック作成ツール（A4・スマホ対応・華やか・画像たくさん）</title>
+
+<style>
+  :root{
+    --a4-w: 210mm;
+    --a4-h: 297mm;
+
+    --panel: rgba(255,255,255,0.92);
+    --stroke: rgba(15,23,42,0.14);
+    --text: #0b1220;
+    --muted: rgba(15,23,42,0.64);
+
+    --accent: #2563eb;
+    --accent2:#7c3aed;
+    --accent3:#16a34a;
+    --accent4:#f59e0b;
+
+    --sheet-scale: 0.42;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Segoe UI", sans-serif;
+    color:var(--text);
+    background:linear-gradient(180deg,#eef2ff, #f8fafc 40%, #f1f5f9);
+  }
+
+  header{
+    position:sticky; top:0; z-index:50;
+    background:rgba(255,255,255,0.95);
+    backdrop-filter: blur(10px);
+    border-bottom:1px solid var(--stroke);
+    padding:10px 12px;
+    display:flex;
+    gap:10px;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .hdr-left,.hdr-right{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .title{ font-weight:900; font-size:13px; line-height:1.1; }
+  .sub{ font-size:11px; color:var(--muted); margin-top:2px; }
+
+  .btn{
+    border:1px solid var(--stroke);
+    background:#fff;
+    padding:9px 10px;
+    border-radius:10px;
+    font-size:13px;
+    line-height:1;
+    cursor:pointer;
+    user-select:none;
+  }
+  .btn.primary{
+    background:linear-gradient(135deg,var(--accent), var(--accent2));
+    color:#fff;
+    border-color:transparent;
+  }
+  .btn:active{ transform: translateY(1px); }
+
+  main{
+    padding:12px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+  }
+
+  .tabs{
+    display:flex;
+    gap:6px;
+    overflow:auto;
+    padding:6px 2px;
+    max-width: 100%;
+  }
+  .tab{
+    flex:0 0 auto;
+    border:1px solid var(--stroke);
+    background:#fff;
+    padding:8px 10px;
+    border-radius:999px;
+    font-size:12px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .tab.active{
+    border-color:transparent;
+    background: rgba(37,99,235,0.12);
+    color:#1d4ed8;
+    font-weight:900;
+  }
+
+  .stage{
+    width: min(96vw, 520px);
+    display:flex;
+    justify-content:center;
+  }
+  .sheet-wrap{
+    transform: scale(var(--sheet-scale));
+    transform-origin: top center;
+    width: var(--a4-w);
+  }
+  .sheet{
+    width: var(--a4-w);
+    height: var(--a4-h);
+    background:#fff;
+    border:1px solid rgba(2,6,23,0.12);
+    border-radius: 14px;
+    box-shadow: 0 16px 46px rgba(2,6,23,0.14);
+    position:relative;
+    overflow:hidden;
+  }
+  .sheet:before{
+    content:"";
+    position:absolute; inset:-30mm;
+    background:
+      radial-gradient(22mm 22mm at 20% 20%, rgba(37,99,235,0.10), transparent 60%),
+      radial-gradient(26mm 26mm at 85% 15%, rgba(124,58,237,0.10), transparent 60%),
+      radial-gradient(30mm 30mm at 15% 80%, rgba(22,163,74,0.10), transparent 60%),
+      radial-gradient(28mm 28mm at 85% 85%, rgba(245,158,11,0.10), transparent 60%);
+    pointer-events:none;
+  }
+  .sheet-inner{
+    position:absolute; inset:0;
+    padding:10mm;
+    display:flex;
+    flex-direction:column;
+    gap:5mm;
+  }
+
+  /* 印刷時：printHostに全ページを並べて一括印刷（印刷ダイアログでPDF保存も可能） */
+  @page{ size: A4 portrait; margin:0; }
+  @media print{
+    header, .no-print, .hintbar, .tabs, .stage { display:none !important; }
+    #printHost{
+      display:block !important;
+      position:static !important;
+      left:auto !important;
+      top:auto !important;
+      width:auto !important;
+      height:auto !important;
+      overflow:visible !important;
+    }
+    html,body{ background:#fff !important; }
+    main{ padding:0 !important; }
+    .sheet-wrap{ transform:none !important; }
+    .sheet{
+      border:none !important;
+      border-radius:0 !important;
+      box-shadow:none !important;
+      page-break-after: always;
+      break-after: page;
+      width: var(--a4-w) !important;
+      height: var(--a4-h) !important;
+    }
+    .sheet:last-child{ page-break-after:auto; break-after:auto; }
+    .sheet:before{ display:none !important; }
+  }
+
+  .hero{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:6mm;
+  }
+  .h1{ font-size:22px; font-weight:1000; letter-spacing:0.02em; }
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 10px;
+    border-radius:999px;
+    background: rgba(37,99,235,0.10);
+    color:#1d4ed8;
+    border:1px solid rgba(37,99,235,0.22);
+    font-size:11px;
+    font-weight:900;
+    white-space:nowrap;
+  }
+
+  .meta{ display:flex; gap:7mm; align-items:flex-start; }
+
+  .photoCard{
+    border:1px solid rgba(2,6,23,0.18);
+    border-radius: 14px;
+    overflow:hidden;
+    position:relative;
+    background: repeating-linear-gradient(45deg,#f5f5f5,#f5f5f5 10px,#fff 10px,#fff 20px);
+  }
+  .photoCard.large{ width: 58mm; height: 74mm; flex:0 0 auto; }
+  .photoCard.small{ width: 40mm; height: 30mm; }
+  .photoCard .ph{
+    position:absolute; inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#9aa3af;
+    font-weight:900;
+    font-size:11px;
+    text-align:center;
+    white-space:pre-line;
+    padding:8px;
+  }
+  .photoCard img{
+    position:absolute; left:0; top:0;
+    transform-origin: center;
+    user-select:none;
+    -webkit-user-drag:none;
+    pointer-events:none;
+  }
+  .photoCard .cap{
+    position:absolute; left:0; right:0; bottom:0;
+    padding:6px 8px;
+    font-size:11px;
+    font-weight:900;
+    color:#0b1220;
+    background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.92) 55%, rgba(255,255,255,0.96));
+  }
+  .photoCard .cap small{ font-weight:700; color:rgba(15,23,42,0.62); }
+
+  .infoGrid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:4mm;
+    flex:1 1 auto;
+  }
+
+  .secTitle{
+    margin:0;
+    font-size:14px;
+    font-weight:1000;
+    letter-spacing:0.02em;
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .secTitle:after{
+    content:"";
+    height:1px;
+    flex:1;
+    background: linear-gradient(90deg, rgba(15,23,42,0.18), rgba(15,23,42,0));
+  }
+
+  .box{
+    border:1px solid rgba(2,6,23,0.14);
+    border-radius: 14px;
+    padding:8px 10px;
+    background: rgba(255,255,255,0.86);
+    box-shadow: 0 10px 24px rgba(2,6,23,0.08);
+    position:relative;
+    min-height: 18mm;
+    cursor:pointer;
+  }
+  .box.wide{ grid-column: 1 / -1; }
+  .lbl{
+    font-size:11px;
+    color:rgba(15,23,42,0.62);
+    font-weight:900;
+    margin-bottom:4px;
+  }
+  .val{
+    font-size:12px;
+    line-height:1.35;
+    white-space:pre-wrap;
+    word-break: break-word;
+  }
+
+  .twoCol{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:4mm;
+  }
+
+  .imgRow{ display:flex; gap:4mm; align-items:center; }
+  .imgGrid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:4mm;
+  }
+
+  .note{
+    font-size:11px;
+    color:rgba(15,23,42,0.62);
+    line-height:1.35;
+  }
+
+  .table{
+    border:1px solid rgba(2,6,23,0.14);
+    border-radius: 14px;
+    overflow:hidden;
+    background: rgba(255,255,255,0.86);
+    box-shadow: 0 10px 24px rgba(2,6,23,0.08);
+  }
+  .trow{
+    display:grid;
+    grid-template-columns: 25% 37.5% 37.5%;
+    border-top:1px solid rgba(2,6,23,0.10);
+    min-height: 16mm;
+  }
+  .trow.thead{
+    background: rgba(37,99,235,0.10);
+    border-top:none;
+    min-height:auto;
+  }
+  .tcell{
+    padding:8px 8px;
+    font-size:11px;
+    font-weight:900;
+    color:rgba(15,23,42,0.78);
+  }
+  .tcell.btncell{ cursor:pointer; }
+  .tcell .hint{ color:rgba(15,23,42,0.42); font-weight:800; }
+  .tcell .txt{
+    white-space:pre-wrap;
+    word-break: break-word;
+    font-weight:700;
+    color:#0b1220;
+    line-height:1.35;
+  }
+
+  .modal{
+    position:fixed; inset:0;
+    display:none;
+    align-items:flex-end;
+    justify-content:center;
+    background: rgba(2,6,23,0.50);
+    z-index:100;
+  }
+  .modal.show{ display:flex; }
+  .sheetModal{
+    width: min(100vw, 720px);
+    background: #fff;
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+    box-shadow: 0 -18px 50px rgba(2,6,23,0.25);
+    padding:12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+  .mhead{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:8px;
+  }
+  .mhead .mtitle{
+    font-weight:1000;
+    font-size:14px;
+  }
+  textarea,input[type="text"],input[type="date"]{
+    width:100%;
+    border:1px solid rgba(2,6,23,0.14);
+    border-radius: 14px;
+    padding:10px;
+    font-size:14px;
+    font-family: inherit;
+    outline:none;
+  }
+  textarea{ min-height: 140px; resize:vertical; }
+
+  .mbar{
+    display:flex;
+    gap:8px;
+    margin-top:10px;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+  }
+
+  .photoEditor{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .phCanvas{
+    width:100%;
+    height: 280px;
+    border:1px solid rgba(2,6,23,0.14);
+    border-radius: 14px;
+    background:#f8fafc;
+    overflow:hidden;
+    position:relative;
+    touch-action:none;
+  }
+  .phCanvas img{
+    position:absolute; left:50%; top:50%;
+    transform-origin: center;
+    user-select:none;
+    -webkit-user-drag:none;
+    pointer-events:none;
+  }
+  .phTools{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .range{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex:1 1 auto;
+    min-width: 160px;
+  }
+  input[type="range"]{ width: 100%; }
+
+  .hintbar{
+    width:min(96vw, 520px);
+    background: rgba(255,255,255,0.92);
+    border:1px solid rgba(2,6,23,0.12);
+    border-radius: 14px;
+    padding:10px 12px;
+    font-size:12px;
+    color:rgba(15,23,42,0.72);
+    box-shadow: 0 10px 24px rgba(2,6,23,0.08);
+  }
+  .hintbar b{ color:#0b1220; }
+
+  /* 画面上では隠す（印刷時に表示） */
+  #printHost{
+    position:fixed;
+    left:-10000px;
+    top:0;
+    width:0;
+    height:0;
+    overflow:hidden;
+  }
+</style>
+</head>
+
+<body>
+
+<header class="no-print">
+  <div class="hdr-left">
+    <div>
+      <div class="title">サポートブック作成ツール</div>
+      <div class="sub">印刷ボタンから「PDFに保存」も選べます（全ページ一括）。</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <button class="btn primary" id="btnPrint">印刷 / PDF（全ページ）</button>
+    <button class="btn" id="btnExport">データ保存</button>
+    <button class="btn" id="btnImport">データ読込</button>
+    <button class="btn" id="btnReset">リセット</button>
+  </div>
+</header>
+
+<main>
+  <div class="hintbar no-print">
+    <div>上のタブでページ切替。タップで入力。</div>
+    <div>写真枠：タップ → 画像選択 → ドラッグで移動／ピンチで拡大縮小／回転も可能。</div>
+    <div>PDF保存は、印刷ダイアログで「保存先：PDF」等を選択してください。</div>
+  </div>
+
+  <div class="tabs no-print" id="tabs"></div>
+  <div class="stage" id="stage"></div>
+
+  <!-- 印刷用：全ページをここに並べる -->
+  <div id="printHost"></div>
+</main>
+
+<!-- Editor modal -->
+<div class="modal" id="modal">
+  <div class="sheetModal">
+    <div class="mhead">
+      <div class="mtitle" id="modalTitle">入力</div>
+      <button class="btn" id="btnClose">閉じる</button>
+    </div>
+
+    <div id="modalBody"></div>
+
+    <div class="mbar">
+      <button class="btn" id="btnInsertExample">例文を入れる</button>
+      <button class="btn primary" id="btnSaveField">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden file inputs for photo -->
+<input type="file" id="photoFile" accept="image/*" style="display:none" />
+<input type="file" id="photoCam" accept="image/*" capture="environment" style="display:none" />
+
+<script>
+/* =========================
+   Data model
+========================= */
+const STORAGE_KEY = "support_book_v2";
+
+const TEMPLATE = {
+  pages: [
+    { id:"p1", title:"表紙", fields: {
+      updatedDate:"", childName:"", nickname:"", birth:"", age:"", diagnosis:"", messageShort:"",
+      photoMain:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"写真" },
+      photoSub1:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"好きなもの" },
+      photoSub2:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"安心グッズ" },
+    }},
+    { id:"p2", title:"いいところ・好きなこと", fields: {
+      strengths:"", interests:"", triggers:"", calming:"",
+      photo1:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"得意" },
+      photo2:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"好き" },
+      photo3:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"落ち着く" },
+    }},
+    { id:"p3", title:"伝え方・コミュニケーション", fields: {
+      understand:"", express:"", supportTips:"",
+      photo1:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"視覚支援" },
+      photo2:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"見本" },
+      photo3:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"ルール" },
+    }},
+    { id:"p4", title:"学校生活 / パニック時", fields: {
+      sensory:"", life:"", learning:"",
+      schoolArrival:"", schoolClass:"", schoolRecess:"", schoolDismissal:"",
+      panicSigns:"", panicSupport:"",
+      photo1:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"教室" },
+      photo2:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"配慮" },
+      photo3:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"クールダウン" },
+    }},
+    { id:"p5", title:"場面別 / 先生へ", fields: {
+      rows:[
+        {scene:"予定の変更", fact:"", support:""},
+        {scene:"指示の理解", fact:"", support:""},
+        {scene:"音の過敏", fact:"", support:""},
+        {scene:"活動の切り替え", fact:"", support:""},
+        {scene:"お友達とのトラブル", fact:"", support:""},
+      ],
+      teacherMessage:"",
+      photo1:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"連絡手段" },
+      photo2:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"持ち物" },
+      photo3:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"配布物" },
+    }},
+  ]
+};
+
+function deepClone(x){ return JSON.parse(JSON.stringify(x)); }
+let state = loadState();
+
+/* =========================
+   Examples (簡易)
+========================= */
+const EXAMPLES = {
+  p1:{ messageShort:"初めての環境で不安も大きいですが、先生と一緒に見守っていければ幸いです。何かあればいつでも連絡帳で教えてください。" },
+  p2:{
+    strengths:"（例）ルールを守る／集中力がある／挨拶が元気",
+    interests:"（例）電車／図鑑／折り紙／特定のキャラクター",
+    triggers:"（例）大きな音、急な変更、待つこと など",
+    calming:"（例）静かな場所、イヤーマフ、好きな小物、タイマー など"
+  },
+  p3:{
+    understand:"（例）短い言葉＋指差しで理解しやすい。視覚のヒントがあると確実です。",
+    express:"（例）困っていても言葉にしにくい。二択で聞くと答えやすいです。",
+    supportTips:"（例）指示の後に個別に注意を向け、短い言葉で伝えると動けます。"
+  },
+  p4:{
+    sensory:"（例）チャイムが苦手。事前予告があると安心します。",
+    life:"（例）偏食あり。完食より安心して食べることを優先したいです。",
+    learning:"（例）手先が不器用。道具の扱いに補助が必要です。",
+    schoolArrival:"（例）朝の支度に時間がかかることがあります。見通し（次は何をするか）があると動きやすいです。",
+    schoolClass:"（例）一斉指示だけだと自分が何をすべきか分からない時があります。個別に短い言葉で確認してもらえると助かります。",
+    schoolRecess:"（例）距離感が近くなりやすいです。トラブルになりそうな時は早めに間に入って代弁してもらえると落ち着きます。",
+    schoolDismissal:"（例）切り替えが苦手です。「あと〇分」など時間の見通しやタイマーがあると移行しやすいです。",
+    panicSigns:"（例）顔が赤い／独り言が増える／固まる",
+    panicSupport:"（例）落ち着くまでは刺激を減らし、短い言葉で次の見通しを伝える。"
+  },
+  p5:{
+    teacherMessage:"本人が学校を安心できる場所と感じられるよう、サポートいただければ幸いです。何かあれば連絡帳等で教えてください。よろしくお願いいたします。"
+  }
+};
+
+/* =========================
+   Rendering
+========================= */
+const stage = document.getElementById("stage");
+const tabs = document.getElementById("tabs");
+let currentPage = 0;
+
+function buildTabs(){
+  tabs.innerHTML = "";
+  state.pages.forEach((p, idx)=>{
+    const b = document.createElement("button");
+    b.className = "tab" + (idx===currentPage ? " active" : "");
+    b.textContent = (idx+1) + "）" + p.title;
+    b.onclick = ()=>{ currentPage = idx; render(); };
+    tabs.appendChild(b);
+  });
+}
+
+function render(){
+  buildTabs();
+  stage.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = "sheet-wrap";
+  wrap.appendChild(renderPage(currentPage));
+  stage.appendChild(wrap);
+  [...tabs.children].forEach((el,i)=> el.classList.toggle("active", i===currentPage));
+  persist();
+}
+
+/* =========================
+   Print helper（全ページ一括生成→印刷）
+========================= */
+async function withAllPagesInPrintHost(fn){
+  const host = document.getElementById("printHost");
+  host.innerHTML = "";
+
+  const pages = [];
+  state.pages.forEach((p, idx)=>{
+    const sheet = renderPage(idx);
+    sheet.style.width = "210mm";
+    sheet.style.height = "297mm";
+    host.appendChild(sheet);
+    pages.push(sheet);
+  });
+
+  await nextFrame(); await nextFrame();
+
+  try{
+    await fn(pages);
+  }finally{
+    host.innerHTML = "";
+  }
+}
+function nextFrame(){ return new Promise(r=>requestAnimationFrame(()=>r())); }
+
+function renderPage(idx){
+  const page = state.pages[idx];
+  const s = document.createElement("div");
+  s.className = "sheet";
+
+  const inner = document.createElement("div");
+  inner.className = "sheet-inner";
+
+  if(page.id==="p1"){
+    const hero = el("div","hero","");
+    const left = el("div","","");
+    left.appendChild(el("div","h1","サポートブック"));
+    left.appendChild(el("div","note","学校・支援者の方へ「この子の安心の取り扱い説明書」"));
+    hero.appendChild(left);
+    hero.appendChild(el("div","badge","📄 A4 / 5ページ"));
+    inner.appendChild(hero);
+
+    const meta = el("div","meta","");
+    const mainPhoto = renderPhotoCard(page.fields.photoMain, "large");
+    mainPhoto.onclick = ()=> openPhotoEditor("p1","photoMain");
+    meta.appendChild(mainPhoto);
+
+    const grid = el("div","infoGrid","");
+    grid.appendChild(renderBox("更新日", valOrHint(page.fields.updatedDate,"タップして入力"), ()=>editField("p1","updatedDate")));
+    grid.appendChild(renderBox("氏名", valOrHint(page.fields.childName,"タップして入力"), ()=>editField("p1","childName")));
+    grid.appendChild(renderBox("愛称", valOrHint(page.fields.nickname,"例：〇〇"), ()=>editField("p1","nickname")));
+    grid.appendChild(renderBox("生年月日 / 年齢", valOrHint(combineBirthAge(page.fields.birth,page.fields.age),"タップして入力"), ()=>editBirthAge()));
+    grid.appendChild(renderBox("診断名（任意）", valOrHint(page.fields.diagnosis,"任意"), ()=>editField("p1","diagnosis")));
+    grid.appendChild(renderBox("一言メッセージ（任意）", valOrHint(page.fields.messageShort,"例文あり"), ()=>editField("p1","messageShort"), {wide:true}));
+    meta.appendChild(grid);
+
+    inner.appendChild(meta);
+
+    inner.appendChild(sectionTitle("📸 写真（好きなもの・安心グッズなど）"));
+    const row = el("div","imgRow","");
+    const s1 = renderPhotoCard(page.fields.photoSub1,"small");
+    s1.onclick = ()=> openPhotoEditor("p1","photoSub1");
+    const s2 = renderPhotoCard(page.fields.photoSub2,"small");
+    s2.onclick = ()=> openPhotoEditor("p1","photoSub2");
+    row.appendChild(s1); row.appendChild(s2);
+    row.appendChild(el("div","note","写真枠は今後さらに増やせます。"));
+    inner.appendChild(row);
+  }
+
+  if(page.id==="p2"){
+    inner.appendChild(sectionTitle("🌟 いいところ・好きなこと"));
+    const img = el("div","imgGrid","");
+    const a = renderPhotoCard(page.fields.photo1,"small"); a.onclick=()=>openPhotoEditor("p2","photo1");
+    const b = renderPhotoCard(page.fields.photo2,"small"); b.onclick=()=>openPhotoEditor("p2","photo2");
+    const c = renderPhotoCard(page.fields.photo3,"small"); c.onclick=()=>openPhotoEditor("p2","photo3");
+    img.appendChild(a); img.appendChild(b); img.appendChild(c);
+    inner.appendChild(img);
+
+    inner.appendChild(renderBox("強み", valOrHint(page.fields.strengths,"例文あり"), ()=>editField("p2","strengths"), {wide:true}));
+    inner.appendChild(renderBox("興味・好きなもの", valOrHint(page.fields.interests,"例文あり"), ()=>editField("p2","interests"), {wide:true}));
+
+    inner.appendChild(sectionTitle("🧩 苦手 / 落ち着けるヒント"));
+    const tc = el("div","twoCol","");
+    tc.appendChild(renderBox("苦手（事実）", valOrHint(page.fields.triggers,"例文あり"), ()=>editField("p2","triggers")));
+    tc.appendChild(renderBox("落ち着く方法（対策）", valOrHint(page.fields.calming,"例文あり"), ()=>editField("p2","calming")));
+    inner.appendChild(tc);
+  }
+
+  if(page.id==="p3"){
+    inner.appendChild(sectionTitle("📢 伝え方・コミュニケーション"));
+    const img = el("div","imgGrid","");
+    const a = renderPhotoCard(page.fields.photo1,"small"); a.onclick=()=>openPhotoEditor("p3","photo1");
+    const b = renderPhotoCard(page.fields.photo2,"small"); b.onclick=()=>openPhotoEditor("p3","photo2");
+    const c = renderPhotoCard(page.fields.photo3,"small"); c.onclick=()=>openPhotoEditor("p3","photo3");
+    img.appendChild(a); img.appendChild(b); img.appendChild(c);
+    inner.appendChild(img);
+
+    inner.appendChild(renderBox("理解しやすい伝え方", valOrHint(page.fields.understand,"例文あり"), ()=>editField("p3","understand"), {wide:true}));
+    inner.appendChild(renderBox("本人の伝え方", valOrHint(page.fields.express,"例文あり"), ()=>editField("p3","express"), {wide:true}));
+    inner.appendChild(renderBox("支援のヒント（事実＋対策）", valOrHint(page.fields.supportTips,"例文あり"), ()=>editField("p3","supportTips"), {wide:true}));
+  }
+
+  if(page.id==="p4"){
+    inner.appendChild(sectionTitle("🏫 学校生活 / 配慮ポイント"));
+    const img = el("div","imgGrid","");
+    const a = renderPhotoCard(page.fields.photo1,"small"); a.onclick=()=>openPhotoEditor("p4","photo1");
+    const b = renderPhotoCard(page.fields.photo2,"small"); b.onclick=()=>openPhotoEditor("p4","photo2");
+    const c = renderPhotoCard(page.fields.photo3,"small"); c.onclick=()=>openPhotoEditor("p4","photo3");
+    img.appendChild(a); img.appendChild(b); img.appendChild(c);
+    inner.appendChild(img);
+
+    const g = el("div","twoCol","");
+    g.appendChild(renderBox("感覚（音・光など）", valOrHint(page.fields.sensory,"例文あり"), ()=>editField("p4","sensory")));
+    g.appendChild(renderBox("生活（トイレ・給食など）", valOrHint(page.fields.life,"例文あり"), ()=>editField("p4","life")));
+    g.appendChild(renderBox("学習（板書・作業など）", valOrHint(page.fields.learning,"例文あり"), ()=>editField("p4","learning"), {wide:true}));
+    inner.appendChild(g);
+
+    inner.appendChild(sectionTitle("🏫 学校生活でのポイント（場面別）"));
+    const sp = el("div","twoCol","");
+    sp.appendChild(renderBox("朝の準備・登校", valOrHint(page.fields.schoolArrival,"例文あり"), ()=>editField("p4","schoolArrival")));
+    sp.appendChild(renderBox("授業中（指示・板書など）", valOrHint(page.fields.schoolClass,"例文あり"), ()=>editField("p4","schoolClass")));
+    sp.appendChild(renderBox("休み時間・集団場面", valOrHint(page.fields.schoolRecess,"例文あり"), ()=>editField("p4","schoolRecess")));
+    sp.appendChild(renderBox("下校・切り替え", valOrHint(page.fields.schoolDismissal,"例文あり"), ()=>editField("p4","schoolDismissal")));
+    inner.appendChild(sp);
+
+    inner.appendChild(sectionTitle("⚠️ 不安が強い時・パニック時"));
+    inner.appendChild(renderBox("予兆（事実）", valOrHint(page.fields.panicSigns,"例文あり"), ()=>editField("p4","panicSigns"), {wide:true}));
+    inner.appendChild(renderBox("対応（対策）", valOrHint(page.fields.panicSupport,"例文あり"), ()=>editField("p4","panicSupport"), {wide:true}));
+  }
+
+  if(page.id==="p5"){
+    inner.appendChild(sectionTitle("📝 場面別（事実＋対策）"));
+    inner.appendChild(renderScenarioTable(page.fields.rows));
+    inner.appendChild(el("div","note","必要なら行数を増やせます。"));
+
+    inner.appendChild(sectionTitle("📸 補足写真（持ち物・連絡方法など）"));
+    const img = el("div","imgGrid","");
+    const a = renderPhotoCard(page.fields.photo1,"small"); a.onclick=()=>openPhotoEditor("p5","photo1");
+    const b = renderPhotoCard(page.fields.photo2,"small"); b.onclick=()=>openPhotoEditor("p5","photo2");
+    const c = renderPhotoCard(page.fields.photo3,"small"); c.onclick=()=>openPhotoEditor("p5","photo3");
+    img.appendChild(a); img.appendChild(b); img.appendChild(c);
+    inner.appendChild(img);
+
+    inner.appendChild(sectionTitle("✉️ 先生へのメッセージ"));
+    inner.appendChild(renderBox("メッセージ", valOrHint(page.fields.teacherMessage,"例文あり"), ()=>editField("p5","teacherMessage"), {wide:true}));
+  }
+
+  s.appendChild(inner);
+  return s;
+}
+
+function sectionTitle(text){
+  const h = document.createElement("h2");
+  h.className = "secTitle";
+  h.textContent = text;
+  return h;
+}
+function renderBox(label, value, onTap, opts={}){
+  const b = document.createElement("div");
+  b.className = "box" + (opts.wide ? " wide" : "");
+  b.setAttribute("role","button");
+  b.tabIndex = 0;
+  b.onclick = (e)=>{ e.stopPropagation(); onTap?.(); };
+  b.onkeydown = (e)=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); onTap?.(); } };
+  b.appendChild(el("div","lbl", label));
+  b.appendChild(el("div","val", value));
+  return b;
+}
+
+/* Scenario table */
+function renderScenarioTable(rows){
+  const t = document.createElement("div");
+  t.className = "table";
+
+  const head = document.createElement("div");
+  head.className = "trow thead";
+  head.appendChild(el("div","tcell","場面"));
+  head.appendChild(el("div","tcell","事実（困りごと）"));
+  head.appendChild(el("div","tcell","対策（具体的お願い）"));
+  t.appendChild(head);
+
+  rows.forEach((r, i)=>{
+    const tr = document.createElement("div");
+    tr.className = "trow";
+    tr.appendChild(cellBtn(r.scene || "タップ", ()=>editTableRow(i), !r.scene));
+    tr.appendChild(cellBtn(r.fact || "タップして入力", ()=>editTableRow(i), !r.fact));
+    tr.appendChild(cellBtn(r.support || "タップして入力", ()=>editTableRow(i), !r.support));
+    t.appendChild(tr);
+  });
+
+  const add = document.createElement("div");
+  add.className = "no-print";
+  add.style.padding = "8px 0 0 0";
+
+  const btn = document.createElement("button");
+  btn.className = "btn";
+  btn.textContent = "＋ 行を追加";
+  btn.onclick = (e)=>{
+    e.stopPropagation();
+    state.pages.find(p=>p.id==="p5").fields.rows.push({scene:"", fact:"", support:""});
+    render();
+  };
+  add.appendChild(btn);
+
+  const btn2 = document.createElement("button");
+  btn2.className = "btn";
+  btn2.style.marginLeft = "8px";
+  btn2.textContent = "− 最後の行を削除";
+  btn2.onclick = (e)=>{
+    e.stopPropagation();
+    const arr = state.pages.find(p=>p.id==="p5").fields.rows;
+    if(arr.length>1) arr.pop();
+    render();
+  };
+  add.appendChild(btn2);
+
+  t.appendChild(add);
+  return t;
+}
+function cellBtn(text, onTap, isHint){
+  const c = document.createElement("div");
+  c.className = "tcell btncell";
+  c.onclick = (e)=>{ e.stopPropagation(); onTap?.(); };
+  c.onkeydown = (e)=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); onTap?.(); } };
+  c.tabIndex = 0;
+
+  const span = document.createElement("div");
+  span.className = isHint ? "hint" : "txt";
+  span.textContent = text;
+  c.appendChild(span);
+  return c;
+}
+
+/* DOM helper */
+function el(tag, cls, text){
+  const d = document.createElement(tag);
+  if(cls) d.className = cls;
+  if(text!==undefined) d.textContent = text;
+  return d;
+}
+
+/* =========================
+   Photo rendering
+========================= */
+function renderPhotoCard(photo, size="small"){
+  const c = document.createElement("div");
+  c.className = "photoCard " + size;
+  c.title = "タップして写真を設定";
+
+  const ph = document.createElement("div");
+  ph.className = "ph";
+  ph.textContent = "タップして\n写真";
+  c.appendChild(ph);
+
+  if(photo?.dataUrl){
+    ph.style.display = "none";
+    const img = document.createElement("img");
+    img.src = photo.dataUrl;
+    const rot = photo.rot || 0;
+    const scale = photo.scale || 1;
+    const x = photo.x || 0;
+    const y = photo.y || 0;
+    img.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rot}deg) scale(${scale})`;
+    img.style.left = "50%";
+    img.style.top = "50%";
+    img.style.width = "120%";
+    img.style.height = "auto";
+    c.appendChild(img);
+  }
+
+  const cap = document.createElement("div");
+  cap.className = "cap";
+  cap.innerHTML = `<div>${escapeHtml(photo?.caption || "写真")}</div><small>タップで編集</small>`;
+  c.appendChild(cap);
+
+  return c;
+}
+function escapeHtml(s){
+  return String(s ?? "").replace(/[&<>"']/g, (m)=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[m]));
+}
+
+/* =========================
+   Modal editor (text & table)
+========================= */
+const modal = document.getElementById("modal");
+const modalTitle = document.getElementById("modalTitle");
+const modalBody = document.getElementById("modalBody");
+const btnClose = document.getElementById("btnClose");
+const btnSaveField = document.getElementById("btnSaveField");
+const btnInsertExample = document.getElementById("btnInsertExample");
+
+let editCtx = null;
+
+btnClose.onclick = ()=> closeModal();
+modal.onclick = (e)=>{ if(e.target===modal) closeModal(); };
+
+function closeModal(){
+  modal.classList.remove("show");
+  modalBody.innerHTML = "";
+  editCtx = null;
+}
+
+function editField(pageId, key){
+  const page = state.pages.find(p=>p.id===pageId);
+  const value = page.fields[key] ?? "";
+  editCtx = { type:"text", pageId, key };
+
+  modalTitle.textContent = "入力：" + labelFor(pageId, key);
+  modalBody.innerHTML = "";
+  const ta = document.createElement("textarea");
+  ta.value = value;
+  ta.placeholder = "ここに入力（空欄OK）";
+  modalBody.appendChild(ta);
+
+  btnInsertExample.style.display = "inline-flex";
+  btnInsertExample.onclick = ()=>{
+    const ex = EXAMPLES[pageId]?.[key];
+    if(ex!==undefined){
+      ta.value = ex;
+    }else{
+      alert("この項目の例文は未設定です。");
+    }
+  };
+
+  btnSaveField.onclick = ()=>{
+    setField(pageId, key, ta.value);
+    closeModal();
+    render();
+  };
+
+  modal.classList.add("show");
+  setTimeout(()=>ta.focus(), 50);
+}
+
+function labelFor(pageId, key){
+  const map = {
+    p1:{
+      updatedDate:"更新日", childName:"氏名", nickname:"愛称", birth:"生年月日", age:"年齢", diagnosis:"診断名", messageShort:"一言メッセージ"
+    },
+    p2:{ strengths:"強み", interests:"興味・好きなもの", triggers:"苦手（事実）", calming:"落ち着く方法（対策）" },
+    p3:{ understand:"理解しやすい伝え方", express:"本人の伝え方", supportTips:"支援のヒント" },
+    p4:{
+      sensory:"感覚", life:"生活", learning:"学習",
+      schoolArrival:"朝の準備・登校", schoolClass:"授業中", schoolRecess:"休み時間・集団", schoolDismissal:"下校・切り替え",
+      panicSigns:"予兆", panicSupport:"対応"
+    },
+    p5:{ teacherMessage:"先生へのメッセージ" }
+  };
+  return (map[pageId] && map[pageId][key]) ? map[pageId][key] : key;
+}
+
+function editBirthAge(){
+  editCtx = { type:"birthage" };
+  modalTitle.textContent = "生年月日 / 年齢";
+  modalBody.innerHTML = "";
+
+  const p1 = state.pages.find(p=>p.id==="p1").fields;
+
+  const birth = document.createElement("input");
+  birth.type = "text";
+  birth.placeholder = "生年月日（例：2019/04/01）";
+  birth.value = p1.birth || "";
+  const age = document.createElement("input");
+  age.type = "text";
+  age.placeholder = "年齢（例：6歳3か月）";
+  age.value = p1.age || "";
+
+  modalBody.appendChild(birth);
+  modalBody.appendChild(el("div","note",""));
+  modalBody.appendChild(age);
+
+  btnInsertExample.style.display = "none";
+
+  btnSaveField.onclick = ()=>{
+    p1.birth = birth.value;
+    p1.age = age.value;
+    closeModal();
+    render();
+  };
+
+  modal.classList.add("show");
+  setTimeout(()=>birth.focus(), 50);
+}
+
+function editTableRow(idx){
+  const page = state.pages.find(p=>p.id==="p5");
+  const row = page.fields.rows[idx] || {scene:"", fact:"", support:""};
+  editCtx = { type:"row", idx };
+
+  modalTitle.textContent = "場面別（行 " + (idx+1) + "）";
+  modalBody.innerHTML = "";
+
+  const scene = document.createElement("input");
+  scene.type = "text";
+  scene.placeholder = "場面（例：予定の変更）";
+  scene.value = row.scene || "";
+
+  const fact = document.createElement("textarea");
+  fact.placeholder = "事実（困りごと）";
+  fact.value = row.fact || "";
+
+  const sup = document.createElement("textarea");
+  sup.placeholder = "対策（具体的お願い）";
+  sup.value = row.support || "";
+
+  modalBody.appendChild(scene);
+  modalBody.appendChild(el("div","note",""));
+  modalBody.appendChild(fact);
+  modalBody.appendChild(el("div","note",""));
+  modalBody.appendChild(sup);
+
+  btnInsertExample.style.display = "none";
+
+  btnSaveField.onclick = ()=>{
+    row.scene = scene.value;
+    row.fact = fact.value;
+    row.support = sup.value;
+    page.fields.rows[idx] = row;
+    closeModal();
+    render();
+  };
+
+  modal.classList.add("show");
+  setTimeout(()=>scene.focus(), 50);
+}
+
+/* =========================
+   Photo editor modal
+========================= */
+let phCtx = null;
+let phImgEl = null;
+let phCanvas = null;
+let phStart = null;
+
+function openPhotoEditor(pageId, key){
+  const ref = getPhotoRef(pageId, key);
+  phCtx = { pageId, key, ref };
+
+  modalTitle.textContent = "写真編集：" + (ref.caption || "写真");
+  modalBody.innerHTML = "";
+
+  const wrap = document.createElement("div");
+  wrap.className = "photoEditor";
+
+  const cap = document.createElement("input");
+  cap.type = "text";
+  cap.placeholder = "キャプション（例：教室／好きなもの など）";
+  cap.value = ref.caption || "";
+  wrap.appendChild(cap);
+
+  phCanvas = document.createElement("div");
+  phCanvas.className = "phCanvas";
+  wrap.appendChild(phCanvas);
+
+  phImgEl = document.createElement("img");
+  phCanvas.appendChild(phImgEl);
+
+  const tools = document.createElement("div");
+  tools.className = "phTools";
+
+  const btnPick = document.createElement("button");
+  btnPick.className = "btn";
+  btnPick.textContent = "画像を選ぶ";
+  btnPick.onclick = (e)=>{ e.stopPropagation(); pickImage(false); };
+
+  const btnCam = document.createElement("button");
+  btnCam.className = "btn";
+  btnCam.textContent = "カメラ";
+  btnCam.onclick = (e)=>{ e.stopPropagation(); pickImage(true); };
+
+  const btnDel = document.createElement("button");
+  btnDel.className = "btn";
+  btnDel.textContent = "削除";
+  btnDel.onclick = (e)=>{
+    e.stopPropagation();
+    ref.dataUrl = "";
+    ref.scale = 1; ref.x = 0; ref.y = 0; ref.rot = 0;
+    syncPh();
+  };
+
+  tools.appendChild(btnPick);
+  tools.appendChild(btnCam);
+  tools.appendChild(btnDel);
+
+  const rangeWrap = document.createElement("div");
+  rangeWrap.className = "range";
+  rangeWrap.appendChild(el("div","note","拡大"));
+  const rng = document.createElement("input");
+  rng.type = "range";
+  rng.min = "0.5"; rng.max = "3"; rng.step = "0.01";
+  rng.value = String(ref.scale || 1);
+  rng.oninput = ()=>{
+    ref.scale = parseFloat(rng.value);
+    syncPh();
+  };
+  rangeWrap.appendChild(rng);
+  tools.appendChild(rangeWrap);
+
+  const rangeWrap2 = document.createElement("div");
+  rangeWrap2.className = "range";
+  rangeWrap2.appendChild(el("div","note","回転"));
+  const rng2 = document.createElement("input");
+  rng2.type = "range";
+  rng2.min = "-180"; rng2.max = "180"; rng2.step = "1";
+  rng2.value = String(ref.rot || 0);
+  rng2.oninput = ()=>{
+    ref.rot = parseInt(rng2.value,10);
+    syncPh();
+  };
+  rangeWrap2.appendChild(rng2);
+  tools.appendChild(rangeWrap2);
+
+  wrap.appendChild(tools);
+  wrap.appendChild(el("div","note","操作：ドラッグで移動／ピンチで拡大縮小（スマホ）"));
+
+  modalBody.appendChild(wrap);
+
+  btnInsertExample.style.display = "none";
+  btnSaveField.onclick = ()=>{
+    ref.caption = cap.value;
+    closeModal();
+    render();
+  };
+
+  modal.classList.add("show");
+
+  enableGestures(phCanvas, rng, rng2);
+  syncPh();
+}
+
+function pickImage(useCamera){
+  const input = useCamera ? document.getElementById("photoCam") : document.getElementById("photoFile");
+  input.onchange = async ()=>{
+    const f = input.files && input.files[0];
+    if(!f) return;
+    const url = await fileToDataUrl(f);
+    const ref = phCtx.ref;
+    ref.dataUrl = url;
+    ref.scale = 1;
+    ref.x = 0;
+    ref.y = 0;
+    ref.rot = 0;
+    syncPh();
+    input.value = "";
+  };
+  input.click();
+}
+function fileToDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = ()=> resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+function syncPh(){
+  const ref = phCtx.ref;
+  if(ref.dataUrl){
+    phImgEl.src = ref.dataUrl;
+    phImgEl.style.display = "block";
+  }else{
+    phImgEl.removeAttribute("src");
+    phImgEl.style.display = "none";
+  }
+  const rot = ref.rot || 0;
+  const scale = ref.scale || 1;
+  const x = ref.x || 0;
+  const y = ref.y || 0;
+
+  phImgEl.style.left = "50%";
+  phImgEl.style.top = "50%";
+  phImgEl.style.width = "130%";
+  phImgEl.style.height = "auto";
+  phImgEl.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rot}deg) scale(${scale})`;
+}
+
+function enableGestures(canvas, rngScale, rngRot){
+  canvas.onpointerdown = (e)=>{
+    canvas.setPointerCapture(e.pointerId);
+    phStart = getPointerState(e);
+    phStart.ref = { x: phCtx.ref.x||0, y: phCtx.ref.y||0, scale: phCtx.ref.scale||1, rot: phCtx.ref.rot||0 };
+  };
+  canvas.onpointermove = (e)=>{
+    if(!phStart) return;
+    const cur = getPointerState(e);
+    const dx = cur.x - phStart.x;
+    const dy = cur.y - phStart.y;
+    phCtx.ref.x = phStart.ref.x + dx;
+    phCtx.ref.y = phStart.ref.y + dy;
+    syncPh();
+  };
+  canvas.onpointerup = ()=>{ phStart = null; };
+  canvas.onpointercancel = ()=>{ phStart = null; };
+
+  let touches = new Map();
+  canvas.addEventListener("touchstart", (e)=>{
+    for(const t of e.changedTouches) touches.set(t.identifier, {x:t.clientX, y:t.clientY});
+    if(touches.size===2){
+      const pts = [...touches.values()];
+      canvas._pinch = {
+        d0: dist(pts[0], pts[1]),
+        a0: angle(pts[0], pts[1]),
+        s0: phCtx.ref.scale||1,
+        r0: phCtx.ref.rot||0
+      };
+    }
+  }, {passive:false});
+
+  canvas.addEventListener("touchmove", (e)=>{
+    if(touches.size===0) return;
+    for(const t of e.changedTouches) touches.set(t.identifier, {x:t.clientX, y:t.clientY});
+    if(touches.size===2 && canvas._pinch){
+      e.preventDefault();
+      const pts = [...touches.values()];
+      const d = dist(pts[0], pts[1]);
+      const a = angle(pts[0], pts[1]);
+      const p = canvas._pinch;
+      const ns = clamp(p.s0 * (d / Math.max(1,p.d0)), 0.5, 3);
+      const nr = clamp(p.r0 + (a - p.a0), -180, 180);
+      phCtx.ref.scale = ns;
+      phCtx.ref.rot = nr;
+      rngScale.value = String(ns);
+      rngRot.value = String(Math.round(nr));
+      syncPh();
+    }
+  }, {passive:false});
+
+  canvas.addEventListener("touchend", (e)=>{
+    for(const t of e.changedTouches) touches.delete(t.identifier);
+    if(touches.size<2){
+      canvas._pinch = null;
+    }else if(touches.size===2){
+      const pts = [...touches.values()];
+      canvas._pinch = {
+        d0: dist(pts[0], pts[1]),
+        a0: angle(pts[0], pts[1]),
+        s0: phCtx.ref.scale||1,
+        r0: phCtx.ref.rot||0
+      };
+    }
+  });
+  canvas.addEventListener("touchcancel", ()=>{ touches.clear(); canvas._pinch=null; });
+}
+
+function getPointerState(e){
+  const rect = phCanvas.getBoundingClientRect();
+  return { x: e.clientX - rect.left - rect.width/2, y: e.clientY - rect.top - rect.height/2 };
+}
+function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+function angle(a,b){ return (Math.atan2(b.y-a.y, b.x-a.x) * 180/Math.PI); }
+function clamp(v,min,max){ return Math.min(max, Math.max(min, v)); }
+
+function getPhotoRef(pageId, key){
+  const p = state.pages.find(x=>x.id===pageId);
+  const obj = p.fields[key];
+  if(!obj || typeof obj !== "object") throw new Error("Photo slot not found: " + pageId + "." + key);
+  if(!("caption" in obj)) obj.caption = "写真";
+  return obj;
+}
+
+/* =========================
+   State helpers
+========================= */
+function setField(pageId, key, value){
+  const p = state.pages.find(x=>x.id===pageId);
+  p.fields[key] = value;
+}
+function valOrHint(v, hint){ return (v && String(v).trim().length) ? v : hint; }
+function combineBirthAge(birth, age){ return [birth, age].filter(x=>x && String(x).trim().length).join(" / "); }
+
+/* =========================
+   Persistence (auto-save)
+========================= */
+function persist(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const s = JSON.parse(raw);
+      return normalizeState(s);
+    }
+  }catch(e){}
+  return deepClone(TEMPLATE);
+}
+function normalizeState(s){
+  if(!s || !Array.isArray(s.pages)) return deepClone(TEMPLATE);
+
+  const out = deepClone(TEMPLATE);
+
+  out.pages.forEach(tp=>{
+    const sp = s.pages.find(p=>p.id===tp.id);
+    if(!sp || !sp.fields) return;
+
+    Object.keys(tp.fields).forEach(k=>{
+      const tv = tp.fields[k];
+      const sv = sp.fields[k];
+
+      if(typeof tv === "string"){
+        if(typeof sv === "string") tp.fields[k] = sv;
+        return;
+      }
+      if(Array.isArray(tv)){
+        if(Array.isArray(sv) && k==="rows"){
+          tp.fields.rows = sv.map(r=>({
+            scene: (r?.scene ?? ""),
+            fact: (r?.fact ?? ""),
+            support: (r?.support ?? "")
+          }));
+        }
+        return;
+      }
+      if(tv && typeof tv === "object"){
+        if(sv && typeof sv === "object"){
+          tp.fields[k].dataUrl = sv.dataUrl || tp.fields[k].dataUrl || "";
+          tp.fields[k].scale = (sv.scale ?? tp.fields[k].scale ?? 1);
+          tp.fields[k].x = (sv.x ?? tp.fields[k].x ?? 0);
+          tp.fields[k].y = (sv.y ?? tp.fields[k].y ?? 0);
+          tp.fields[k].rot = (sv.rot ?? tp.fields[k].rot ?? 0);
+          tp.fields[k].caption = (sv.caption ?? tp.fields[k].caption ?? "写真");
+        }
+      }
+    });
+  });
+
+  return out;
+}
+
+/* =========================
+   Header actions
+========================= */
+document.getElementById("btnPrint").onclick = async ()=>{
+  await withAllPagesInPrintHost(async ()=>{
+    window.print(); // ここから「PDFに保存」も選べる
+  });
+};
+
+document.getElementById("btnExport").onclick = ()=>{
+  const data = JSON.stringify(state, null, 2);
+  const blob = new Blob([data], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "support_book_data.json";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+};
+
+document.getElementById("btnImport").onclick = ()=>{
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = "application/json";
+  inp.onchange = async ()=>{
+    const f = inp.files && inp.files[0];
+    if(!f) return;
+    const text = await f.text();
+    try{
+      const obj = JSON.parse(text);
+      state = normalizeState(obj);
+      currentPage = 0;
+      render();
+      alert("読み込みました。");
+    }catch(e){
+      alert("読み込みに失敗しました（JSON形式を確認してください）。");
+    }
+  };
+  inp.click();
+};
+
+document.getElementById("btnReset").onclick = ()=>{
+  if(confirm("入力内容をリセットします。よろしいですか？")){
+    state = deepClone(TEMPLATE);
+    currentPage = 0;
+    render();
+  }
+};
+
+/* =========================
+   Init
+========================= */
+render();
+</script>
+
+</body>
+</html>

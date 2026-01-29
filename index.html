@@ -63,6 +63,7 @@
     border-color:transparent;
   }
   .btn:active{ transform: translateY(1px); }
+  .btn[disabled]{ opacity:0.6; cursor:not-allowed; }
 
   main{
     padding:12px;
@@ -146,6 +147,7 @@
       width:auto !important;
       height:auto !important;
       overflow:visible !important;
+      opacity:1 !important;
     }
     html,body{ background:#fff !important; }
     main{ padding:0 !important; }
@@ -422,14 +424,16 @@
   }
   .hintbar b{ color:#0b1220; }
 
-  /* 画面上では隠す（印刷時に表示） */
+  /* 重要：画面上でもA4実寸でDOMを作ってレイアウトさせる（左外に退避） */
   #printHost{
-    position:fixed;
-    left:-10000px;
-    top:0;
-    width:0;
-    height:0;
-    overflow:hidden;
+    position: fixed;
+    left: -140vw;
+    top: 0;
+    width: var(--a4-w);
+    height: auto;
+    overflow: visible;
+    opacity: 0;
+    pointer-events: none;
   }
 </style>
 </head>
@@ -462,7 +466,7 @@
   <div class="stage" id="stage"></div>
 
   <!-- 印刷用：全ページをここに並べる -->
-  <div id="printHost"></div>
+  <div id="printHost" aria-hidden="true"></div>
 </main>
 
 <!-- Editor modal -->
@@ -601,9 +605,15 @@ function render(){
 }
 
 /* =========================
-   Print helper（全ページ一括生成→印刷）
+   Print (robust)
+   - printHostをA4実寸で生成
+   - 画像decodeを待つ
+   - afterprintで掃除（早期に消してしまう不具合を防止）
 ========================= */
-async function withAllPagesInPrintHost(fn){
+let printing = false;
+let printCleanupTimer = null;
+
+async function buildPrintHostPages(){
   const host = document.getElementById("printHost");
   host.innerHTML = "";
 
@@ -616,16 +626,126 @@ async function withAllPagesInPrintHost(fn){
     pages.push(sheet);
   });
 
+  // レイアウト反映待ち
   await nextFrame(); await nextFrame();
 
-  try{
-    await fn(pages);
-  }finally{
-    host.innerHTML = "";
-  }
+  // 画像読み込み待ち（dataURLも含む）
+  await waitForImages(host, 5000);
+
+  // 追加で1フレーム
+  await nextFrame();
+
+  return { host, pages };
 }
+
+function clearPrintHost(){
+  const host = document.getElementById("printHost");
+  host.innerHTML = "";
+}
+
 function nextFrame(){ return new Promise(r=>requestAnimationFrame(()=>r())); }
 
+async function waitForImages(rootEl, timeoutMs=5000){
+  const imgs = Array.from(rootEl.querySelectorAll("img")).filter(img=>img && img.src);
+  if(imgs.length === 0) return;
+
+  const deadline = Date.now() + timeoutMs;
+
+  const tasks = imgs.map(async (img)=>{
+    try{
+      if(img.complete && img.naturalWidth > 0) return;
+
+      // decodeが使えるブラウザはdecode優先
+      if(img.decode){
+        const left = Math.max(0, deadline - Date.now());
+        await Promise.race([
+          img.decode(),
+          new Promise((_,rej)=>setTimeout(()=>rej(new Error("decode timeout")), left))
+        ]);
+        return;
+      }
+
+      // decodeが無い場合はload/errorを待つ
+      const left = Math.max(0, deadline - Date.now());
+      await Promise.race([
+        new Promise((res)=>img.addEventListener("load", res, {once:true})),
+        new Promise((res)=>img.addEventListener("error", res, {once:true})),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error("load timeout")), left))
+      ]);
+    }catch(e){
+      // タイムアウトしても印刷は続行（空白になる可能性はある）
+    }
+  });
+
+  await Promise.all(tasks);
+}
+
+function safeWindowPrint(){
+  // iOS Safari等でprintが無効/制限されるケースへの最低限のガード
+  if(typeof window.print !== "function"){
+    alert("このブラウザでは印刷機能が利用できません。別のブラウザ（Chrome等）またはPCでお試しください。");
+    return false;
+  }
+  window.print();
+  return true;
+}
+
+async function startPrintAllPages(){
+  if(printing) return;
+  printing = true;
+
+  const btn = document.getElementById("btnPrint");
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "印刷準備中…";
+
+  try{
+    await buildPrintHostPages();
+
+    btn.textContent = "印刷ダイアログ起動…";
+
+    // afterprintで掃除する（印刷開始前に消える不具合を回避）
+    const onAfterPrint = ()=>{
+      window.removeEventListener("afterprint", onAfterPrint);
+      if(printCleanupTimer){ clearTimeout(printCleanupTimer); printCleanupTimer = null; }
+      clearPrintHost();
+      printing = false;
+      btn.disabled = false;
+      btn.textContent = oldText;
+    };
+    window.addEventListener("afterprint", onAfterPrint);
+
+    // afterprintが発火しないブラウザ用の保険（10秒後に掃除）
+    printCleanupTimer = setTimeout(()=>{
+      try{ window.removeEventListener("afterprint", onAfterPrint); }catch(e){}
+      clearPrintHost();
+      printing = false;
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }, 10000);
+
+    // 直後printだと反映が間に合わない環境があるので少し待つ
+    setTimeout(()=>{
+      const ok = safeWindowPrint();
+      if(!ok){
+        // printできないなら即掃除
+        onAfterPrint();
+      }
+    }, 120);
+
+  }catch(e){
+    console.error(e);
+    clearPrintHost();
+    printing = false;
+    btn.disabled = false;
+    btn.textContent = oldText;
+    alert("印刷準備に失敗しました。画像が多い場合は削減して再試行してください。");
+  }
+}
+
+/* =========================
+   Page renderer
+========================= */
 function renderPage(idx){
   const page = state.pages[idx];
   const s = document.createElement("div");
@@ -656,7 +776,6 @@ function renderPage(idx){
     grid.appendChild(renderBox("診断名（任意）", valOrHint(page.fields.diagnosis,"任意"), ()=>editField("p1","diagnosis")));
     grid.appendChild(renderBox("一言メッセージ（任意）", valOrHint(page.fields.messageShort,"例文あり"), ()=>editField("p1","messageShort"), {wide:true}));
     meta.appendChild(grid);
-
     inner.appendChild(meta);
 
     inner.appendChild(sectionTitle("📸 写真（好きなもの・安心グッズなど）"));
@@ -939,9 +1058,7 @@ function editField(pageId, key){
 
 function labelFor(pageId, key){
   const map = {
-    p1:{
-      updatedDate:"更新日", childName:"氏名", nickname:"愛称", birth:"生年月日", age:"年齢", diagnosis:"診断名", messageShort:"一言メッセージ"
-    },
+    p1:{ updatedDate:"更新日", childName:"氏名", nickname:"愛称", birth:"生年月日", age:"年齢", diagnosis:"診断名", messageShort:"一言メッセージ" },
     p2:{ strengths:"強み", interests:"興味・好きなもの", triggers:"苦手（事実）", calming:"落ち着く方法（対策）" },
     p3:{ understand:"理解しやすい伝え方", express:"本人の伝え方", supportTips:"支援のヒント" },
     p4:{
@@ -1333,11 +1450,7 @@ function normalizeState(s){
 /* =========================
    Header actions
 ========================= */
-document.getElementById("btnPrint").onclick = async ()=>{
-  await withAllPagesInPrintHost(async ()=>{
-    window.print(); // ここから「PDFに保存」も選べる
-  });
-};
+document.getElementById("btnPrint").onclick = startPrintAllPages;
 
 document.getElementById("btnExport").onclick = ()=>{
   const data = JSON.stringify(state, null, 2);

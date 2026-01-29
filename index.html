@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>サポートブック作成ツール（A4・スマホ対応・華やか・画像たくさん）</title>
+<title>サポートブック作成ツール（A4・スマホ対応・PDF生成）</title>
 
 <style>
   :root{
@@ -55,6 +55,9 @@
     line-height:1;
     cursor:pointer;
     user-select:none;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
   }
   .btn.primary{
     background:linear-gradient(135deg,var(--accent), var(--accent2));
@@ -63,6 +66,13 @@
   }
   .btn:active{ transform: translateY(1px); }
   .btn[disabled]{ opacity:0.6; cursor:not-allowed; }
+  .btn.icon{
+    padding:8px 10px;
+  }
+  .ico{
+    width:18px; height:18px;
+    display:inline-block;
+  }
 
   main{
     padding:12px;
@@ -134,10 +144,10 @@
     gap:5mm;
   }
 
-  /* 印刷用 */
+  /* 印刷用（PC向け） */
   @page{ size: A4 portrait; margin:0; }
   @media print{
-    header, .no-print, .hintbar, .tabs, .stage { display:none !important; }
+    header, .no-print, .hintbar, .tabs, .stage, .progressWrap { display:none !important; }
     #printHost{
       display:block !important;
       position:static !important;
@@ -209,7 +219,7 @@
     padding:8px;
   }
   .photoCard img{
-    position:absolute; left:0; top:0;
+    position:absolute;
     transform-origin: center;
     user-select:none;
     -webkit-user-drag:none;
@@ -400,16 +410,14 @@
     gap:8px;
     flex-wrap:wrap;
     align-items:center;
-    justify-content:space-between;
+    justify-content:flex-start;
   }
-  .range{
+  .toolRow{
     display:flex;
-    align-items:center;
     gap:8px;
-    flex:1 1 auto;
-    min-width: 160px;
+    flex-wrap:wrap;
+    align-items:center;
   }
-  input[type="range"]{ width: 100%; }
 
   .hintbar{
     width:min(96vw, 520px);
@@ -421,9 +429,8 @@
     color:rgba(15,23,42,0.72);
     box-shadow: 0 10px 24px rgba(2,6,23,0.08);
   }
-  .hintbar b{ color:#0b1220; }
 
-  /* 重要：印刷用DOMは「非表示（visibility）」でレイアウト参加させる */
+  /* PDF生成用：画面外でレイアウトさせる（スクショ用途） */
   #printHost{
     position: absolute;
     left: -99999px;
@@ -434,6 +441,40 @@
     visibility: hidden;
     pointer-events: none;
   }
+
+  /* 進捗表示 */
+  .progressWrap{
+    width:min(96vw, 520px);
+    border:1px solid rgba(2,6,23,0.12);
+    background: rgba(255,255,255,0.92);
+    border-radius:14px;
+    padding:10px 12px;
+    box-shadow: 0 10px 24px rgba(2,6,23,0.08);
+    display:none;
+  }
+  .progressWrap.show{ display:block; }
+  .progressTitle{
+    font-size:12px;
+    font-weight:900;
+    color:rgba(15,23,42,0.78);
+    margin-bottom:8px;
+  }
+  .bar{
+    height:10px;
+    background: rgba(15,23,42,0.10);
+    border-radius:999px;
+    overflow:hidden;
+  }
+  .bar > div{
+    height:100%;
+    width:0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .progressNote{
+    margin-top:8px;
+    font-size:11px;
+    color:rgba(15,23,42,0.62);
+  }
 </style>
 </head>
 
@@ -443,7 +484,7 @@
   <div class="hdr-left">
     <div>
       <div class="title">サポートブック作成ツール</div>
-      <div class="sub">印刷ボタンから「PDFに保存」も選べます（全ページ一括）。</div>
+      <div class="sub">PCは印刷、スマホはPDF生成→保存/共有（ボタンは1つ）</div>
     </div>
   </div>
   <div class="hdr-right">
@@ -456,15 +497,21 @@
 
 <main>
   <div class="hintbar no-print">
-    <div>上のタブでページ切替。タップで入力。</div>
-    <div>写真枠：タップ → 画像選択 → ドラッグで移動／ピンチで拡大縮小／回転も可能。</div>
-    <div>PDF保存は、印刷ダイアログで「保存先：PDF」等を選択してください。</div>
+    <div>タブでページ切替。ボックス/表/写真枠をタップして入力。</div>
+    <div>画像編集：ドラッグで移動／ピンチで拡大縮小／90°回転ボタン。</div>
+    <div>スマホは「PDF生成→保存/共有」が確実です（印刷サービス依存を回避）。</div>
+  </div>
+
+  <div class="progressWrap no-print" id="progress">
+    <div class="progressTitle" id="progressTitle">PDFを作成しています…</div>
+    <div class="bar"><div id="progressBar"></div></div>
+    <div class="progressNote" id="progressNote">画像が多いと時間がかかります。</div>
   </div>
 
   <div class="tabs no-print" id="tabs"></div>
   <div class="stage" id="stage"></div>
 
-  <!-- 印刷用：全ページをここに並べる（画面外でレイアウトさせる） -->
+  <!-- 印刷/PDF用：全ページをここに並べる -->
   <div id="printHost" aria-hidden="true"></div>
 </main>
 
@@ -488,8 +535,15 @@
 <input type="file" id="photoFile" accept="image/*" style="display:none" />
 <input type="file" id="photoCam" accept="image/*" capture="environment" style="display:none" />
 
+<!-- PDF生成ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
 <script>
-const STORAGE_KEY = "support_book_v2";
+/* =========================
+   Data model
+========================= */
+const STORAGE_KEY = "support_book_v_pdf1";
 
 const TEMPLATE = {
   pages: [
@@ -538,6 +592,9 @@ const TEMPLATE = {
 function deepClone(x){ return JSON.parse(JSON.stringify(x)); }
 let state = loadState();
 
+/* =========================
+   Examples
+========================= */
 const EXAMPLES = {
   p1:{ messageShort:"初めての環境で不安も大きいですが、先生と一緒に見守っていければ幸いです。何かあればいつでも連絡帳で教えてください。" },
   p2:{
@@ -567,6 +624,9 @@ const EXAMPLES = {
   }
 };
 
+/* =========================
+   UI base
+========================= */
 const stage = document.getElementById("stage");
 const tabs = document.getElementById("tabs");
 let currentPage = 0;
@@ -593,11 +653,15 @@ function render(){
   persist();
 }
 
-/* ======== 印刷（Android Chrome対策：同期で生成→即print） ======== */
-let printing = false;
-let cleanupTimer = null;
+/* =========================
+   Print / PDF (single button)
+   - PC: window.print()
+   - Mobile(Android): Generate PDF and share/save
+========================= */
+const isAndroid = /Android/i.test(navigator.userAgent);
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-function buildPrintHostSync(){
+function buildPrintHost(){
   const host = document.getElementById("printHost");
   host.innerHTML = "";
   state.pages.forEach((p, idx)=>{
@@ -606,58 +670,125 @@ function buildPrintHostSync(){
     sheet.style.height = "297mm";
     host.appendChild(sheet);
   });
+  return host;
 }
-
 function clearPrintHost(){
-  const host = document.getElementById("printHost");
-  host.innerHTML = "";
+  document.getElementById("printHost").innerHTML = "";
 }
 
-function startPrintAllPagesSync(){
-  if(printing) return;
-  printing = true;
+const prog = {
+  wrap: document.getElementById("progress"),
+  title: document.getElementById("progressTitle"),
+  bar: document.getElementById("progressBar"),
+  note: document.getElementById("progressNote"),
+  show(t){ this.wrap.classList.add("show"); this.title.textContent = t || "PDFを作成しています…"; this.set(0); },
+  hide(){ this.wrap.classList.remove("show"); },
+  set(p){ this.bar.style.width = `${Math.max(0,Math.min(100,p))}%`; }
+};
 
-  const btn = document.getElementById("btnPrint");
-  const oldText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = "印刷中…";
-
-  // 重要：ここでawait/timeoutを挟まない（ユーザー操作の直後にprintする）
-  try{
-    buildPrintHostSync();
-    window.print();
-  }catch(e){
-    console.error(e);
-    alert("印刷に失敗しました。");
-    printing = false;
-    btn.disabled = false;
-    btn.textContent = oldText;
-    clearPrintHost();
+async function generatePdfAllPages(){
+  // ライブラリ存在チェック
+  if(!window.html2canvas || !window.jspdf || !window.jspdf.jsPDF){
+    alert("PDF生成ライブラリの読み込みに失敗しました。通信状況をご確認ください。");
     return;
   }
 
-  // afterprintが来るなら最優先で掃除
-  const onAfterPrint = ()=>{
-    window.removeEventListener("afterprint", onAfterPrint);
-    if(cleanupTimer){ clearTimeout(cleanupTimer); cleanupTimer = null; }
-    clearPrintHost();
-    printing = false;
-    btn.disabled = false;
-    btn.textContent = oldText;
-  };
-  window.addEventListener("afterprint", onAfterPrint);
+  prog.show("PDFを作成しています…");
+  prog.note.textContent = "画像が多いと時間がかかります。";
 
-  // Android Chromeでafterprintが飛ばない場合の保険（15秒後に掃除）
-  cleanupTimer = setTimeout(()=>{
-    try{ window.removeEventListener("afterprint", onAfterPrint); }catch(_){}
-    clearPrintHost();
-    printing = false;
-    btn.disabled = false;
-    btn.textContent = oldText;
-  }, 15000);
+  const host = buildPrintHost();
+  // 画面外でもレンダリングが安定するよう少し待つ
+  await new Promise(r=>requestAnimationFrame(()=>r()));
+  await new Promise(r=>setTimeout(r, 50));
+
+  const pages = Array.from(host.querySelectorAll(".sheet"));
+  const { jsPDF } = window.jspdf;
+
+  const pdf = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+  const pageW = 210;
+  const pageH = 297;
+
+  // 端末負荷を考慮してスケールは控えめ（必要なら 2.0 へ）
+  const scale = 1.6;
+
+  for(let i=0;i<pages.length;i++){
+    prog.set(Math.round((i / Math.max(1,pages.length)) * 100));
+    prog.title.textContent = `PDF作成：${i+1}/${pages.length}ページ`;
+
+    const node = pages[i];
+
+    // 透過/背景の差異を避けるため白背景でキャプチャ
+    const canvas = await html2canvas(node, {
+      backgroundColor: "#ffffff",
+      scale,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      windowWidth: node.scrollWidth,
+      windowHeight: node.scrollHeight
+    });
+
+    const imgData = canvas.toDataURL("image/jpeg", 0.92);
+
+    if(i>0) pdf.addPage();
+    pdf.addImage(imgData, "JPEG", 0, 0, pageW, pageH, undefined, "FAST");
+
+    // メモリ逃がし
+    canvas.width = 1; canvas.height = 1;
+    await new Promise(r=>setTimeout(r, 20));
+  }
+
+  prog.set(100);
+  prog.title.textContent = "PDFを準備しています…";
+
+  const blob = pdf.output("blob");
+  clearPrintHost();
+  prog.hide();
+
+  const fileName = `support_book_${new Date().toISOString().slice(0,10)}.pdf`;
+  const file = new File([blob], fileName, { type:"application/pdf" });
+
+  // Android Chrome: Web Share API があれば共有/保存先選択が出しやすい
+  if(navigator.canShare && navigator.canShare({ files:[file] }) && navigator.share){
+    try{
+      await navigator.share({ files:[file], title:"サポートブックPDF", text:"サポートブックのPDFです。" });
+      return;
+    }catch(e){
+      // shareキャンセル等はフォールバックへ
+    }
+  }
+
+  // フォールバック：新規タブで開く（そこから保存）
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank");
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
 }
 
-/* ======== Page renderer ======== */
+function startPrintOrPdf(){
+  // PCは印刷
+  if(!isMobile){
+    // 印刷用DOMを組み立ててから印刷（PCは安定）
+    buildPrintHost();
+    const onAfter = ()=>{
+      window.removeEventListener("afterprint", onAfter);
+      clearPrintHost();
+    };
+    window.addEventListener("afterprint", onAfter);
+    window.print();
+    // afterprintが来ない環境の保険
+    setTimeout(()=>{ try{ window.removeEventListener("afterprint", onAfter); }catch(_){}
+      clearPrintHost();
+    }, 10000);
+    return;
+  }
+
+  // スマホはPDF生成（特にAndroid Chromeで確実）
+  generatePdfAllPages();
+}
+
+/* =========================
+   Page renderer
+========================= */
 function renderPage(idx){
   const page = state.pages[idx];
   const s = document.createElement("div");
@@ -802,6 +933,7 @@ function renderBox(label, value, onTap, opts={}){
   return b;
 }
 
+/* Scenario table */
 function renderScenarioTable(rows){
   const t = document.createElement("div");
   t.className = "table";
@@ -865,6 +997,7 @@ function cellBtn(text, onTap, isHint){
   return c;
 }
 
+/* DOM helper */
 function el(tag, cls, text){
   const d = document.createElement(tag);
   if(cls) d.className = cls;
@@ -872,7 +1005,9 @@ function el(tag, cls, text){
   return d;
 }
 
-/* Photo */
+/* =========================
+   Photo rendering
+========================= */
 function renderPhotoCard(photo, size="small"){
   const c = document.createElement("div");
   c.className = "photoCard " + size;
@@ -891,11 +1026,11 @@ function renderPhotoCard(photo, size="small"){
     const scale = photo.scale || 1;
     const x = photo.x || 0;
     const y = photo.y || 0;
-    img.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rot}deg) scale(${scale})`;
     img.style.left = "50%";
     img.style.top = "50%";
     img.style.width = "120%";
     img.style.height = "auto";
+    img.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rot}deg) scale(${scale})`;
     c.appendChild(img);
   }
 
@@ -912,7 +1047,9 @@ function escapeHtml(s){
   }[m]));
 }
 
-/* Modal editor */
+/* =========================
+   Modal editor (text & table)
+========================= */
 const modal = document.getElementById("modal");
 const modalTitle = document.getElementById("modalTitle");
 const modalBody = document.getElementById("modalBody");
@@ -926,6 +1063,10 @@ modal.onclick = (e)=>{ if(e.target===modal) closeModal(); };
 function closeModal(){
   modal.classList.remove("show");
   modalBody.innerHTML = "";
+  phCtx = null;
+  phImgEl = null;
+  phCanvas = null;
+  phStart = null;
 }
 
 function editField(pageId, key){
@@ -1044,7 +1185,11 @@ function editTableRow(idx){
   setTimeout(()=>scene.focus(), 50);
 }
 
-/* Photo editor */
+/* =========================
+   Photo editor modal
+   - rotate: 90° button with icon
+   - pinch: scale
+========================= */
 let phCtx = null;
 let phImgEl = null;
 let phCanvas = null;
@@ -1076,6 +1221,9 @@ function openPhotoEditor(pageId, key){
   const tools = document.createElement("div");
   tools.className = "phTools";
 
+  const row1 = document.createElement("div");
+  row1.className = "toolRow";
+
   const btnPick = document.createElement("button");
   btnPick.className = "btn";
   btnPick.textContent = "画像を選ぶ";
@@ -1085,6 +1233,15 @@ function openPhotoEditor(pageId, key){
   btnCam.className = "btn";
   btnCam.textContent = "カメラ";
   btnCam.onclick = (e)=>{ e.stopPropagation(); pickImage(true); };
+
+  const btnRotate = document.createElement("button");
+  btnRotate.className = "btn icon";
+  btnRotate.innerHTML = rotateIcon() + "90°回転";
+  btnRotate.onclick = (e)=>{
+    e.stopPropagation();
+    ref.rot = ((ref.rot || 0) + 90) % 360;
+    syncPh();
+  };
 
   const btnDel = document.createElement("button");
   btnDel.className = "btn";
@@ -1096,40 +1253,15 @@ function openPhotoEditor(pageId, key){
     syncPh();
   };
 
-  tools.appendChild(btnPick);
-  tools.appendChild(btnCam);
-  tools.appendChild(btnDel);
+  row1.appendChild(btnPick);
+  row1.appendChild(btnCam);
+  row1.appendChild(btnRotate);
+  row1.appendChild(btnDel);
 
-  const rangeWrap = document.createElement("div");
-  rangeWrap.className = "range";
-  rangeWrap.appendChild(el("div","note","拡大"));
-  const rng = document.createElement("input");
-  rng.type = "range";
-  rng.min = "0.5"; rng.max = "3"; rng.step = "0.01";
-  rng.value = String(ref.scale || 1);
-  rng.oninput = ()=>{
-    ref.scale = parseFloat(rng.value);
-    syncPh();
-  };
-  rangeWrap.appendChild(rng);
-  tools.appendChild(rangeWrap);
-
-  const rangeWrap2 = document.createElement("div");
-  rangeWrap2.className = "range";
-  rangeWrap2.appendChild(el("div","note","回転"));
-  const rng2 = document.createElement("input");
-  rng2.type = "range";
-  rng2.min = "-180"; rng2.max = "180"; rng2.step = "1";
-  rng2.value = String(ref.rot || 0);
-  rng2.oninput = ()=>{
-    ref.rot = parseInt(rng2.value,10);
-    syncPh();
-  };
-  rangeWrap2.appendChild(rng2);
-  tools.appendChild(rangeWrap2);
+  tools.appendChild(row1);
 
   wrap.appendChild(tools);
-  wrap.appendChild(el("div","note","操作：ドラッグで移動／ピンチで拡大縮小（スマホ）"));
+  wrap.appendChild(el("div","note","操作：ドラッグで移動／ピンチで拡大縮小／90°回転ボタン。"));
 
   modalBody.appendChild(wrap);
 
@@ -1142,8 +1274,17 @@ function openPhotoEditor(pageId, key){
 
   modal.classList.add("show");
 
-  enableGestures(phCanvas, rng, rng2);
+  enableGestures(phCanvas);
   syncPh();
+}
+
+function rotateIcon(){
+  return `
+  <svg class="ico" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M4 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M20 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M20 9a8 8 0 0 0-14.9-3M4 15a8 8 0 0 0 14.9 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </svg>`;
 }
 
 function pickImage(useCamera){
@@ -1171,6 +1312,7 @@ function fileToDataUrl(file){
     r.readAsDataURL(file);
   });
 }
+
 function syncPh(){
   const ref = phCtx.ref;
   if(ref.dataUrl){
@@ -1192,11 +1334,12 @@ function syncPh(){
   phImgEl.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rot}deg) scale(${scale})`;
 }
 
-function enableGestures(canvas, rngScale, rngRot){
+function enableGestures(canvas){
+  // ドラッグ（pointer）
   canvas.onpointerdown = (e)=>{
     canvas.setPointerCapture(e.pointerId);
     phStart = getPointerState(e);
-    phStart.ref = { x: phCtx.ref.x||0, y: phCtx.ref.y||0, scale: phCtx.ref.scale||1, rot: phCtx.ref.rot||0 };
+    phStart.ref = { x: phCtx.ref.x||0, y: phCtx.ref.y||0 };
   };
   canvas.onpointermove = (e)=>{
     if(!phStart) return;
@@ -1210,16 +1353,16 @@ function enableGestures(canvas, rngScale, rngRot){
   canvas.onpointerup = ()=>{ phStart = null; };
   canvas.onpointercancel = ()=>{ phStart = null; };
 
+  // ピンチ（touch）：拡大縮小
   let touches = new Map();
+
   canvas.addEventListener("touchstart", (e)=>{
     for(const t of e.changedTouches) touches.set(t.identifier, {x:t.clientX, y:t.clientY});
     if(touches.size===2){
       const pts = [...touches.values()];
       canvas._pinch = {
         d0: dist(pts[0], pts[1]),
-        a0: angle(pts[0], pts[1]),
-        s0: phCtx.ref.scale||1,
-        r0: phCtx.ref.rot||0
+        s0: phCtx.ref.scale || 1
       };
     }
   }, {passive:false});
@@ -1231,14 +1374,9 @@ function enableGestures(canvas, rngScale, rngRot){
       e.preventDefault();
       const pts = [...touches.values()];
       const d = dist(pts[0], pts[1]);
-      const a = angle(pts[0], pts[1]);
       const p = canvas._pinch;
-      const ns = clamp(p.s0 * (d / Math.max(1,p.d0)), 0.5, 3);
-      const nr = clamp(p.r0 + (a - p.a0), -180, 180);
+      const ns = clamp(p.s0 * (d / Math.max(1,p.d0)), 0.5, 3.0);
       phCtx.ref.scale = ns;
-      phCtx.ref.rot = nr;
-      rngScale.value = String(ns);
-      rngRot.value = String(Math.round(nr));
       syncPh();
     }
   }, {passive:false});
@@ -1251,9 +1389,7 @@ function enableGestures(canvas, rngScale, rngRot){
       const pts = [...touches.values()];
       canvas._pinch = {
         d0: dist(pts[0], pts[1]),
-        a0: angle(pts[0], pts[1]),
-        s0: phCtx.ref.scale||1,
-        r0: phCtx.ref.rot||0
+        s0: phCtx.ref.scale || 1
       };
     }
   });
@@ -1265,7 +1401,6 @@ function getPointerState(e){
   return { x: e.clientX - rect.left - rect.width/2, y: e.clientY - rect.top - rect.height/2 };
 }
 function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
-function angle(a,b){ return (Math.atan2(b.y-a.y, b.x-a.x) * 180/Math.PI); }
 function clamp(v,min,max){ return Math.min(max, Math.max(min, v)); }
 
 function getPhotoRef(pageId, key){
@@ -1276,7 +1411,9 @@ function getPhotoRef(pageId, key){
   return obj;
 }
 
-/* helpers */
+/* =========================
+   State helpers / persistence
+========================= */
 function setField(pageId, key, value){
   const p = state.pages.find(x=>x.id===pageId);
   p.fields[key] = value;
@@ -1284,7 +1421,6 @@ function setField(pageId, key, value){
 function valOrHint(v, hint){ return (v && String(v).trim().length) ? v : hint; }
 function combineBirthAge(birth, age){ return [birth, age].filter(x=>x && String(x).trim().length).join(" / "); }
 
-/* persistence */
 function persist(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
 function loadState(){
   try{
@@ -1338,8 +1474,10 @@ function normalizeState(s){
   return out;
 }
 
-/* header actions */
-document.getElementById("btnPrint").onclick = startPrintAllPagesSync;
+/* =========================
+   Header actions
+========================= */
+document.getElementById("btnPrint").onclick = startPrintOrPdf;
 
 document.getElementById("btnExport").onclick = ()=>{
   const data = JSON.stringify(state, null, 2);
@@ -1381,7 +1519,9 @@ document.getElementById("btnReset").onclick = ()=>{
   }
 };
 
-/* init */
+/* =========================
+   Init
+========================= */
 render();
 </script>
 

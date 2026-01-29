@@ -3,23 +3,18 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>サポートブック作成ツール（A4・スマホ対応・PDF生成）</title>
+<title>サポートブック作成ツール（修正版）</title>
 
 <style>
   :root{
     --a4-w: 210mm;
     --a4-h: 297mm;
-
     --stroke: rgba(15,23,42,0.14);
     --text: #0b1220;
     --muted: rgba(15,23,42,0.64);
-
     --accent: #2563eb;
     --accent2:#7c3aed;
-    --accent3:#16a34a;
-    --accent4:#f59e0b;
-
-    --sheet-scale: 0.42;
+    --sheet-scale: 0.42; /* スマホ画面での縮小表示率 */
   }
 
   *{ box-sizing:border-box; }
@@ -31,6 +26,7 @@
     background:linear-gradient(180deg,#eef2ff, #f8fafc 40%, #f1f5f9);
   }
 
+  /* UI要素（印刷時は消す） */
   header{
     position:sticky; top:0; z-index:50;
     background:rgba(255,255,255,0.95);
@@ -42,1488 +38,764 @@
     align-items:center;
     justify-content:space-between;
   }
-  .hdr-left,.hdr-right{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .title{ font-weight:900; font-size:13px; line-height:1.1; }
-  .sub{ font-size:11px; color:var(--muted); margin-top:2px; }
+  .hdr-left .title{ font-weight:900; font-size:13px; line-height:1.1; }
+  .hdr-left .sub{ font-size:11px; color:var(--muted); margin-top:2px; }
+  .hdr-right{ display:flex; gap:8px; }
 
   .btn{
     border:1px solid var(--stroke);
     background:#fff;
-    padding:9px 10px;
+    padding:8px 12px;
     border-radius:10px;
-    font-size:13px;
-    line-height:1;
+    font-size:12px;
+    font-weight:700;
     cursor:pointer;
-    user-select:none;
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
+    display:inline-flex; align-items:center; gap:6px;
+    white-space:nowrap;
   }
   .btn.primary{
     background:linear-gradient(135deg,var(--accent), var(--accent2));
-    color:#fff;
-    border-color:transparent;
+    color:#fff; border-color:transparent;
   }
   .btn:active{ transform: translateY(1px); }
-  .btn[disabled]{ opacity:0.6; cursor:not-allowed; }
-  .btn.icon{
-    padding:8px 10px;
-  }
-  .ico{
-    width:18px; height:18px;
-    display:inline-block;
-  }
 
   main{
     padding:12px;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:10px;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    padding-bottom: 80px;
   }
 
-  .tabs{
-    display:flex;
-    gap:6px;
-    overflow:auto;
-    padding:6px 2px;
-    max-width: 100%;
-  }
+  .tabs{ display:flex; gap:6px; overflow:auto; padding:6px 2px; max-width:100%; }
   .tab{
     flex:0 0 auto;
-    border:1px solid var(--stroke);
-    background:#fff;
-    padding:8px 10px;
-    border-radius:999px;
-    font-size:12px;
-    cursor:pointer;
-    white-space:nowrap;
+    border:1px solid var(--stroke); background:#fff;
+    padding:8px 12px; border-radius:999px;
+    font-size:12px; cursor:pointer;
   }
   .tab.active{
     border-color:transparent;
-    background: rgba(37,99,235,0.12);
-    color:#1d4ed8;
-    font-weight:900;
+    background: rgba(37,99,235,0.12); color:#1d4ed8; font-weight:900;
   }
 
-  .stage{
-    width: min(96vw, 520px);
-    display:flex;
-    justify-content:center;
-  }
+  /* 編集画面のプレビュー表示 */
+  .stage{ width: min(96vw, 520px); display:flex; justify-content:center; }
   .sheet-wrap{
     transform: scale(var(--sheet-scale));
     transform-origin: top center;
     width: var(--a4-w);
+    /* 高さはJSで制御するか、コンテンツなり */
   }
+
+  /* A4用紙のスタイル */
   .sheet{
     width: var(--a4-w);
     height: var(--a4-h);
     background:#fff;
     border:1px solid rgba(2,6,23,0.12);
-    border-radius: 14px;
+    border-radius: 4px; /* 印刷プレビュー用に少し丸く */
     box-shadow: 0 16px 46px rgba(2,6,23,0.14);
     position:relative;
     overflow:hidden;
+    margin-bottom: 20px;
   }
-  .sheet:before{
-    content:"";
-    position:absolute; inset:-30mm;
+  
+  /* 用紙の背景装飾（画面上のみ表示） */
+  .sheet.on-screen:before{
+    content:""; position:absolute; inset:-30mm;
     background:
       radial-gradient(22mm 22mm at 20% 20%, rgba(37,99,235,0.10), transparent 60%),
-      radial-gradient(26mm 26mm at 85% 15%, rgba(124,58,237,0.10), transparent 60%),
-      radial-gradient(30mm 30mm at 15% 80%, rgba(22,163,74,0.10), transparent 60%),
-      radial-gradient(28mm 28mm at 85% 85%, rgba(245,158,11,0.10), transparent 60%);
+      radial-gradient(26mm 26mm at 85% 15%, rgba(124,58,237,0.10), transparent 60%);
     pointer-events:none;
   }
+
   .sheet-inner{
     position:absolute; inset:0;
-    padding:10mm;
-    display:flex;
-    flex-direction:column;
-    gap:5mm;
+    padding:12mm 10mm; /* 余白調整 */
+    display:flex; flex-direction:column; gap:4mm;
   }
 
-  /* 印刷用（PC向け） */
-  @page{ size: A4 portrait; margin:0; }
-  @media print{
-    header, .no-print, .hintbar, .tabs, .stage, .progressWrap { display:none !important; }
-    #printHost{
-      display:block !important;
-      position:static !important;
-      left:auto !important;
-      top:auto !important;
-      width:auto !important;
-      height:auto !important;
-      overflow:visible !important;
-      visibility: visible !important;
-    }
-    html,body{ background:#fff !important; }
-    main{ padding:0 !important; }
-    .sheet-wrap{ transform:none !important; }
-    .sheet{
-      border:none !important;
-      border-radius:0 !important;
-      box-shadow:none !important;
-      page-break-after: always;
-      break-after: page;
-      width: var(--a4-w) !important;
-      height: var(--a4-h) !important;
-    }
-    .sheet:last-child{ page-break-after:auto; break-after:auto; }
-    .sheet:before{ display:none !important; }
-  }
-
-  .hero{
-    display:flex;
-    align-items:flex-end;
-    justify-content:space-between;
-    gap:6mm;
-  }
-  .h1{ font-size:22px; font-weight:1000; letter-spacing:0.02em; }
-  .badge{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    padding:6px 10px;
-    border-radius:999px;
-    background: rgba(37,99,235,0.10);
-    color:#1d4ed8;
-    border:1px solid rgba(37,99,235,0.22);
-    font-size:11px;
-    font-weight:900;
-    white-space:nowrap;
-  }
-
-  .meta{ display:flex; gap:7mm; align-items:flex-start; }
-
+  /* コンテンツ部品 */
+  .hero{ display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:2mm; }
+  .h1{ font-size:24px; font-weight:1000; letter-spacing:0.02em; color:var(--text); }
+  
+  .meta{ display:flex; gap:6mm; margin-bottom:2mm; }
+  
+  /* 写真カード */
   .photoCard{
     border:1px solid rgba(2,6,23,0.18);
-    border-radius: 14px;
-    overflow:hidden;
-    position:relative;
-    background: repeating-linear-gradient(45deg,#f5f5f5,#f5f5f5 10px,#fff 10px,#fff 20px);
+    border-radius: 8px;
+    overflow:hidden; position:relative;
+    background: #f8fafc;
+    cursor: pointer;
   }
-  .photoCard.large{ width: 58mm; height: 74mm; flex:0 0 auto; }
+  .photoCard.large{ width: 55mm; height: 70mm; flex:0 0 auto; }
   .photoCard.small{ width: 40mm; height: 30mm; }
-  .photoCard .ph{
+  
+  .photoCard .ph-placeholder{
     position:absolute; inset:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    color:#9aa3af;
-    font-weight:900;
-    font-size:11px;
-    text-align:center;
+    display:flex; align-items:center; justify-content:center;
+    color:#9aa3af; font-size:10px; font-weight:900; text-align:center;
     white-space:pre-line;
-    padding:8px;
+    pointer-events:none;
   }
   .photoCard img{
-    position:absolute;
+    position:absolute; pointer-events:none;
     transform-origin: center;
-    user-select:none;
-    -webkit-user-drag:none;
-    pointer-events:none;
   }
   .photoCard .cap{
     position:absolute; left:0; right:0; bottom:0;
-    padding:6px 8px;
-    font-size:11px;
-    font-weight:900;
-    color:#0b1220;
-    background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.92) 55%, rgba(255,255,255,0.96));
+    padding:4px 6px;
+    font-size:10px; font-weight:900;
+    background: rgba(255,255,255,0.9);
+    pointer-events:none;
   }
-  .photoCard .cap small{ font-weight:700; color:rgba(15,23,42,0.62); }
+  .photoCard .cap small { display: none; } /* 印刷時は「編集」文字を消す */
+  .screen-only .photoCard .cap small { display: inline; color:#666; font-size:9px; margin-left:4px; }
 
-  .infoGrid{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap:4mm;
-    flex:1 1 auto;
-  }
-
-  .secTitle{
-    margin:0;
-    font-size:14px;
-    font-weight:1000;
-    letter-spacing:0.02em;
-    display:flex;
-    gap:8px;
-    align-items:center;
-  }
-  .secTitle:after{
-    content:"";
-    height:1px;
-    flex:1;
-    background: linear-gradient(90deg, rgba(15,23,42,0.18), rgba(15,23,42,0));
-  }
-
+  /* 入力ボックス */
+  .infoGrid{ display:grid; grid-template-columns: 1fr 1fr; gap:3mm; flex:1; }
   .box{
     border:1px solid rgba(2,6,23,0.14);
-    border-radius: 14px;
-    padding:8px 10px;
-    background: rgba(255,255,255,0.86);
-    box-shadow: 0 10px 24px rgba(2,6,23,0.08);
-    position:relative;
-    min-height: 18mm;
+    border-radius: 8px;
+    padding:6px 8px;
+    background: rgba(255,255,255,0.6);
+    min-height: 16mm;
     cursor:pointer;
   }
   .box.wide{ grid-column: 1 / -1; }
-  .lbl{
-    font-size:11px;
-    color:rgba(15,23,42,0.62);
-    font-weight:900;
-    margin-bottom:4px;
-  }
-  .val{
-    font-size:12px;
-    line-height:1.35;
-    white-space:pre-wrap;
-    word-break: break-word;
+  .lbl{ font-size:10px; color:rgba(15,23,42,0.6); font-weight:900; margin-bottom:3px; }
+  .val{ font-size:11pt; line-height:1.4; white-space:pre-wrap; word-break:break-word; color:#0b1220; }
+  /* 未入力時のヒント（印刷時は消す） */
+  .val .hint-text { color: rgba(0,0,0,0.25); font-size:10px; }
+
+  .secTitle{
+    margin:2mm 0 1mm 0;
+    font-size:13px; font-weight:1000;
+    border-bottom:2px solid rgba(15,23,42,0.1);
+    padding-bottom:2px;
   }
 
-  .twoCol{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap:4mm;
-  }
+  .twoCol{ display:grid; grid-template-columns: 1fr 1fr; gap:3mm; }
+  .imgGrid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:3mm; }
+  .imgRow{ display:flex; gap:3mm; align-items:center; }
 
-  .imgRow{ display:flex; gap:4mm; align-items:center; }
-  .imgGrid{
-    display:grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap:4mm;
-  }
+  /* 注釈（画面でのみ表示） */
+  .note { font-size:10px; color:var(--muted); margin-top:2px; }
 
-  .note{
-    font-size:11px;
-    color:rgba(15,23,42,0.62);
-    line-height:1.35;
-  }
-
+  /* テーブル */
   .table{
-    border:1px solid rgba(2,6,23,0.14);
-    border-radius: 14px;
-    overflow:hidden;
-    background: rgba(255,255,255,0.86);
-    box-shadow: 0 10px 24px rgba(2,6,23,0.08);
+    border:1px solid rgba(2,6,23,0.14); border-radius:8px; overflow:hidden;
+    font-size:10.5pt;
   }
-  .trow{
-    display:grid;
-    grid-template-columns: 25% 37.5% 37.5%;
-    border-top:1px solid rgba(2,6,23,0.10);
-    min-height: 16mm;
-  }
-  .trow.thead{
-    background: rgba(37,99,235,0.10);
-    border-top:none;
-    min-height:auto;
-  }
-  .tcell{
-    padding:8px 8px;
-    font-size:11px;
-    font-weight:900;
-    color:rgba(15,23,42,0.78);
-  }
-  .tcell.btncell{ cursor:pointer; }
-  .tcell .hint{ color:rgba(15,23,42,0.42); font-weight:800; }
-  .tcell .txt{
-    white-space:pre-wrap;
-    word-break: break-word;
-    font-weight:700;
-    color:#0b1220;
-    line-height:1.35;
-  }
+  .trow{ display:grid; grid-template-columns: 20% 40% 40%; border-top:1px solid rgba(2,6,23,0.1); }
+  .trow:first-child{ border-top:none; background:rgba(37,99,235,0.05); font-weight:900; font-size:9pt; }
+  .tcell{ padding:6px 8px; white-space:pre-wrap; word-break:break-word; }
+  .tcell.btncell{ cursor:pointer; min-height:14mm; }
+  .tcell .hint-text{ color:rgba(0,0,0,0.25); font-size:9px; }
 
+  /* モーダル */
   .modal{
-    position:fixed; inset:0;
-    display:none;
-    align-items:flex-end;
-    justify-content:center;
-    background: rgba(2,6,23,0.50);
-    z-index:100;
+    position:fixed; inset:0; z-index:100;
+    background:rgba(0,0,0,0.5);
+    display:none; align-items:flex-end; justify-content:center;
   }
   .modal.show{ display:flex; }
   .sheetModal{
-    width: min(100vw, 720px);
-    background: #fff;
-    border-top-left-radius: 18px;
-    border-top-right-radius: 18px;
-    box-shadow: 0 -18px 50px rgba(2,6,23,0.25);
-    padding:12px;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    width:min(100vw, 700px); background:#fff;
+    border-radius:16px 16px 0 0;
+    padding:16px; padding-bottom:calc(20px + env(safe-area-inset-bottom));
+    display:flex; flex-direction:column; gap:12px;
+    max-height: 90vh;
   }
-  .mhead{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    margin-bottom:8px;
-  }
-  .mhead .mtitle{
-    font-weight:1000;
-    font-size:14px;
-  }
-  textarea,input[type="text"]{
-    width:100%;
-    border:1px solid rgba(2,6,23,0.14);
-    border-radius: 14px;
-    padding:10px;
-    font-size:14px;
-    font-family: inherit;
-    outline:none;
-  }
-  textarea{ min-height: 140px; resize:vertical; }
+  .mhead{ display:flex; justify-content:space-between; align-items:center; }
+  .mbody{ overflow-y:auto; flex:1; }
+  textarea{ width:100%; min-height:120px; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:16px; }
+  
+  /* 印刷・PDF生成用コントロール（重要） */
+  @media print {
+    /* 印刷時はUIを消す */
+    header, .tabs, .hintbar, .modal, .progressWrap, .stage, .no-print { display:none !important; }
+    /* 印刷用ホストを表示 */
+    #printHost { display:block !important; position:static !important; visibility:visible !important; }
+    
+    html, body { background: white !important; height:auto !important; }
+    main { padding:0 !important; display:block !important; }
 
-  .mbar{
-    display:flex;
-    gap:8px;
-    margin-top:10px;
-    justify-content:flex-end;
-    flex-wrap:wrap;
+    /* 印刷用設定 */
+    @page { size: A4 portrait; margin: 0; }
+    .sheet {
+      page-break-after: always; break-after: page;
+      border: none !important; box-shadow: none !important;
+      margin: 0 !important; width: 210mm !important; height: 297mm !important;
+      transform: none !important;
+    }
+    .sheet:last-child { page-break-after: auto; }
+    
+    /* 印刷時にヒントや注釈を消す */
+    .hint-text { display: none !important; }
+    .note { display: none !important; }
+    .ph-placeholder { opacity: 0.1 !important; color:transparent !important; } /* 枠だけ残すか薄くする */
   }
 
-  .photoEditor{
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-  }
-  .phCanvas{
-    width:100%;
-    height: 280px;
-    border:1px solid rgba(2,6,23,0.14);
-    border-radius: 14px;
-    background:#f8fafc;
-    overflow:hidden;
-    position:relative;
-    touch-action:none;
-  }
-  .phCanvas img{
-    position:absolute; left:50%; top:50%;
-    transform-origin: center;
-    user-select:none;
-    -webkit-user-drag:none;
-    pointer-events:none;
-  }
-  .phTools{
-    display:flex;
-    gap:8px;
-    flex-wrap:wrap;
-    align-items:center;
-    justify-content:flex-start;
-  }
-  .toolRow{
-    display:flex;
-    gap:8px;
-    flex-wrap:wrap;
-    align-items:center;
+  /* PDF生成用の隠しエリア */
+  #printHost {
+    display: none; /* 通常時は非表示 */
   }
 
-  .hintbar{
-    width:min(96vw, 520px);
-    background: rgba(255,255,255,0.92);
-    border:1px solid rgba(2,6,23,0.12);
-    border-radius: 14px;
-    padding:10px 12px;
-    font-size:12px;
-    color:rgba(15,23,42,0.72);
-    box-shadow: 0 10px 24px rgba(2,6,23,0.08);
-  }
-
-  /* PDF生成用：画面外でレイアウトさせる（スクショ用途） */
-  #printHost{
-    position: absolute;
-    left: -99999px;
-    top: 0;
-    width: var(--a4-w);
-    height: auto;
-    overflow: visible;
-    visibility: hidden;
-    pointer-events: none;
-  }
-
-  /* 進捗表示 */
+  /* 進捗バー */
   .progressWrap{
-    width:min(96vw, 520px);
-    border:1px solid rgba(2,6,23,0.12);
-    background: rgba(255,255,255,0.92);
-    border-radius:14px;
-    padding:10px 12px;
-    box-shadow: 0 10px 24px rgba(2,6,23,0.08);
-    display:none;
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:80%; max-width:300px;
+    background:#fff; padding:20px; border-radius:12px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.3);
+    z-index:200; display:none; text-align:center;
   }
   .progressWrap.show{ display:block; }
-  .progressTitle{
-    font-size:12px;
-    font-weight:900;
-    color:rgba(15,23,42,0.78);
-    margin-bottom:8px;
-  }
-  .bar{
-    height:10px;
-    background: rgba(15,23,42,0.10);
-    border-radius:999px;
-    overflow:hidden;
-  }
-  .bar > div{
-    height:100%;
-    width:0%;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-  }
-  .progressNote{
-    margin-top:8px;
-    font-size:11px;
-    color:rgba(15,23,42,0.62);
+  .p-bar{ height:6px; background:#eee; border-radius:3px; margin:10px 0; overflow:hidden; }
+  .p-fill{ height:100%; background:var(--accent); width:0%; transition:width 0.2s; }
+
+  /* ヒントバー */
+  .hintbar{
+    background:#fff; border:1px solid var(--stroke); padding:10px; border-radius:8px;
+    font-size:11px; color:var(--muted); width:min(96vw, 520px);
   }
 </style>
 </head>
-
 <body>
 
 <header class="no-print">
   <div class="hdr-left">
-    <div>
-      <div class="title">サポートブック作成ツール</div>
-      <div class="sub">PCは印刷、スマホはPDF生成→保存/共有（ボタンは1つ）</div>
-    </div>
+    <div class="title">サポートブック作成</div>
+    <div class="sub">入力して「保存」ボタンでPDF化</div>
   </div>
   <div class="hdr-right">
-    <button class="btn primary" id="btnPrint">印刷 / PDF（全ページ）</button>
-    <button class="btn" id="btnExport">データ保存</button>
-    <button class="btn" id="btnImport">データ読込</button>
+    <button class="btn primary" id="btnExportPdf">PDF保存 / 印刷</button>
     <button class="btn" id="btnReset">リセット</button>
   </div>
 </header>
 
 <main>
   <div class="hintbar no-print">
-    <div>タブでページ切替。ボックス/表/写真枠をタップして入力。</div>
-    <div>画像編集：ドラッグで移動／ピンチで拡大縮小／90°回転ボタン。</div>
-    <div>スマホは「PDF生成→保存/共有」が確実です（印刷サービス依存を回避）。</div>
-  </div>
-
-  <div class="progressWrap no-print" id="progress">
-    <div class="progressTitle" id="progressTitle">PDFを作成しています…</div>
-    <div class="bar"><div id="progressBar"></div></div>
-    <div class="progressNote" id="progressNote">画像が多いと時間がかかります。</div>
+    <div>1. 上のタブでページを切り替えます。</div>
+    <div>2. 枠をタップして文字や写真を入力します。</div>
+    <div>3. 完成したら右上の「PDF保存」を押してください。</div>
+    <div style="color:#e11d48; margin-top:4px;">※ 入力欄の薄い文字（ヒント）は印刷されません。</div>
   </div>
 
   <div class="tabs no-print" id="tabs"></div>
-  <div class="stage" id="stage"></div>
+  
+  <div class="stage no-print" id="stage"></div>
 
-  <!-- 印刷/PDF用：全ページをここに並べる -->
-  <div id="printHost" aria-hidden="true"></div>
+  <div id="printHost"></div>
 </main>
 
-<!-- Editor modal -->
+<div class="progressWrap no-print" id="progress">
+  <div style="font-weight:bold; margin-bottom:5px;">PDFを作成中...</div>
+  <div class="p-bar"><div class="p-fill" id="pFill"></div></div>
+  <div style="font-size:10px; color:#666;">※画像が多いと時間がかかります</div>
+</div>
+
 <div class="modal" id="modal">
   <div class="sheetModal">
     <div class="mhead">
-      <div class="mtitle" id="modalTitle">入力</div>
-      <button class="btn" id="btnClose">閉じる</button>
+      <div style="font-weight:bold;">編集</div>
+      <button class="btn" id="btnCloseModal">閉じる</button>
     </div>
-
-    <div id="modalBody"></div>
-
-    <div class="mbar">
-      <button class="btn" id="btnInsertExample">例文を入れる</button>
-      <button class="btn primary" id="btnSaveField">保存</button>
+    <div class="mbody" id="modalBody">
+      </div>
+    <div class="mhead" style="justify-content:flex-end; gap:10px;">
+      <button class="btn" id="btnExample">例文を入力</button>
+      <button class="btn primary" id="btnSaveField">決定</button>
     </div>
   </div>
 </div>
 
 <input type="file" id="photoFile" accept="image/*" style="display:none" />
-<input type="file" id="photoCam" accept="image/*" capture="environment" style="display:none" />
 
-<!-- PDF生成ライブラリ -->
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
 <script>
-/* =========================
-   Data model
-========================= */
-const STORAGE_KEY = "support_book_v_pdf1";
-
+/* --- 1. Data & State --- */
+const STORAGE_KEY = "sb_v2_data";
 const TEMPLATE = {
   pages: [
     { id:"p1", title:"表紙", fields: {
       updatedDate:"", childName:"", nickname:"", birth:"", age:"", diagnosis:"", messageShort:"",
-      photoMain:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"写真" },
-      photoSub1:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"好きなもの" },
-      photoSub2:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"安心グッズ" },
+      photoMain:{ dataUrl:"", caption:"本人の写真" },
+      photoSub1:{ dataUrl:"", caption:"好きなもの" },
+      photoSub2:{ dataUrl:"", caption:"安心グッズ" }
     }},
-    { id:"p2", title:"いいところ・好きなこと", fields: {
+    { id:"p2", title:"強み・好き", fields: {
       strengths:"", interests:"", triggers:"", calming:"",
-      photo1:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"得意" },
-      photo2:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"好き" },
-      photo3:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"落ち着く" },
+      photo1:{ dataUrl:"", caption:"得意" }, photo2:{ dataUrl:"", caption:"好き" }, photo3:{ dataUrl:"", caption:"ハマっている" }
     }},
-    { id:"p3", title:"伝え方・コミュニケーション", fields: {
+    { id:"p3", title:"伝え方", fields: {
       understand:"", express:"", supportTips:"",
-      photo1:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"視覚支援" },
-      photo2:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"見本" },
-      photo3:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"ルール" },
+      photo1:{ dataUrl:"", caption:"視覚支援" }, photo2:{ dataUrl:"", caption:"見本" }, photo3:{ dataUrl:"", caption:"ルール" }
     }},
-    { id:"p4", title:"学校生活 / パニック時", fields: {
-      sensory:"", life:"", learning:"",
-      schoolArrival:"", schoolClass:"", schoolRecess:"", schoolDismissal:"",
+    { id:"p4", title:"学校生活", fields: {
+      sensory:"", life:"", learning:"", schoolArrival:"", schoolClass:"", schoolRecess:"", schoolDismissal:"",
       panicSigns:"", panicSupport:"",
-      photo1:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"教室" },
-      photo2:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"配慮" },
-      photo3:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"クールダウン" },
+      photo1:{ dataUrl:"", caption:"配慮" }, photo2:{ dataUrl:"", caption:"クールダウン" }, photo3:{ dataUrl:"", caption:"その他" }
     }},
-    { id:"p5", title:"場面別 / 先生へ", fields: {
-      rows:[
-        {scene:"予定の変更", fact:"", support:""},
-        {scene:"指示の理解", fact:"", support:""},
-        {scene:"音の過敏", fact:"", support:""},
-        {scene:"活動の切り替え", fact:"", support:""},
-        {scene:"お友達とのトラブル", fact:"", support:""},
-      ],
+    { id:"p5", title:"場面別・先生へ", fields: {
+      rows:[ {s:"予定変更", f:"", t:""}, {s:"一斉指示", f:"", t:""}, {s:"音の過敏", f:"", t:""}, {s:"切り替え", f:"", t:""} ],
       teacherMessage:"",
-      photo1:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"連絡手段" },
-      photo2:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"持ち物" },
-      photo3:{ dataUrl:"", scale:1, x:0, y:0, rot:0, caption:"配布物" },
-    }},
+      photo1:{ dataUrl:"", caption:"連絡帳" }, photo2:{ dataUrl:"", caption:"持ち物" }, photo3:{ dataUrl:"", caption:"配布物" }
+    }}
   ]
 };
 
-function deepClone(x){ return JSON.parse(JSON.stringify(x)); }
-let state = loadState();
-
-/* =========================
-   Examples
-========================= */
+// 例文データ
 const EXAMPLES = {
-  p1:{ messageShort:"初めての環境で不安も大きいですが、先生と一緒に見守っていければ幸いです。何かあればいつでも連絡帳で教えてください。" },
-  p2:{
-    strengths:"（例）ルールを守る／集中力がある／挨拶が元気",
-    interests:"（例）電車／図鑑／折り紙／特定のキャラクター",
-    triggers:"（例）大きな音、急な変更、待つこと など",
-    calming:"（例）静かな場所、イヤーマフ、好きな小物、タイマー など"
-  },
-  p3:{
-    understand:"（例）短い言葉＋指差しで理解しやすい。視覚のヒントがあると確実です。",
-    express:"（例）困っていても言葉にしにくい。二択で聞くと答えやすいです。",
-    supportTips:"（例）指示の後に個別に注意を向け、短い言葉で伝えると動けます。"
-  },
-  p4:{
-    sensory:"（例）チャイムが苦手。事前予告があると安心します。",
-    life:"（例）偏食あり。完食より安心して食べることを優先したいです。",
-    learning:"（例）手先が不器用。道具の扱いに補助が必要です。",
-    schoolArrival:"（例）朝の支度に時間がかかることがあります。見通し（次は何をするか）があると動きやすいです。",
-    schoolClass:"（例）一斉指示だけだと自分が何をすべきか分からない時があります。個別に短い言葉で確認してもらえると助かります。",
-    schoolRecess:"（例）距離感が近くなりやすいです。トラブルになりそうな時は早めに間に入って代弁してもらえると落ち着きます。",
-    schoolDismissal:"（例）切り替えが苦手です。「あと〇分」など時間の見通しやタイマーがあると移行しやすいです。",
-    panicSigns:"（例）顔が赤い／独り言が増える／固まる",
-    panicSupport:"（例）落ち着くまでは刺激を減らし、短い言葉で次の見通しを伝える。"
-  },
-  p5:{
-    teacherMessage:"本人が学校を安心できる場所と感じられるよう、サポートいただければ幸いです。何かあれば連絡帳等で教えてください。よろしくお願いいたします。"
-  }
+  p1: { messageShort:"環境の変化に敏感ですが、慣れると元気に活動できます。よろしくお願いします。" },
+  p2: { strengths:"ルールを守る、集中力がある、記憶力が良い", interests:"電車、ロゴマーク、数字、図鑑", triggers:"大きな音、急な予定変更、待たされること", calming:"イヤーマフをする、静かな場所で休む、タイマーで時間を見る" },
+  p3: { understand:"短い言葉で伝える。絵や写真を見せると分かりやすい。", express:"言葉での説明が苦手。二択（AかBか）で聞くと答えやすい。", supportTips:"一度に言わず、一つずつ指示を出す。できた時に具体的に褒める。" },
+  p4: { sensory:"チャイムの音が苦手。偏食があり給食は減らしてほしい。", life:"着替えに時間がかかる。トイレは一人で行ける。", learning:"書くことが苦手。板書はタブレット撮影を許可してほしい。", schoolArrival:"朝は機嫌が悪いことがある。", schoolClass:"自信がないと固まる。個別に声をかけてほしい。", schoolRecess:"一人で図書室にいるのが好き。", panicSigns:"独り言が増える、耳をふさぐ", panicSupport:"刺激の少ない場所へ誘導し、落ち着くまでそっとしておく。" },
+  p5: { teacherMessage:"何かあった際は連絡帳でお知らせください。家庭でも連携してサポートしていきたいです。" }
 };
 
-/* =========================
-   UI base
-========================= */
-const stage = document.getElementById("stage");
-const tabs = document.getElementById("tabs");
+let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(JSON.stringify(TEMPLATE));
 let currentPage = 0;
 
-function buildTabs(){
-  tabs.innerHTML = "";
-  state.pages.forEach((p, idx)=>{
-    const b = document.createElement("button");
-    b.className = "tab" + (idx===currentPage ? " active" : "");
-    b.textContent = (idx+1) + "）" + p.title;
-    b.onclick = ()=>{ currentPage = idx; render(); };
-    tabs.appendChild(b);
-  });
-}
+/* --- 2. Render Logic --- */
+const stage = document.getElementById("stage");
+const printHost = document.getElementById("printHost");
+const tabs = document.getElementById("tabs");
 
 function render(){
-  buildTabs();
+  // Tabs
+  tabs.innerHTML = "";
+  state.pages.forEach((p,i)=>{
+    const b = document.createElement("div");
+    b.className = "tab" + (i===currentPage ? " active":"");
+    b.textContent = p.title;
+    b.onclick = ()=>{ currentPage=i; render(); };
+    tabs.appendChild(b);
+  });
+
+  // Stage (Screen View)
   stage.innerHTML = "";
+  // 画面表示用にクラスをつける
+  const sheet = renderPage(state.pages[currentPage]);
+  sheet.classList.add("on-screen");
   const wrap = document.createElement("div");
   wrap.className = "sheet-wrap";
-  wrap.appendChild(renderPage(currentPage));
+  wrap.appendChild(sheet);
   stage.appendChild(wrap);
-  [...tabs.children].forEach((el,i)=> el.classList.toggle("active", i===currentPage));
-  persist();
+
+  saveState();
 }
 
-/* =========================
-   Print / PDF (single button)
-   - PC: window.print()
-   - Mobile(Android): Generate PDF and share/save
-========================= */
-const isAndroid = /Android/i.test(navigator.userAgent);
-const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+// ページ1枚をDOMとして生成する関数
+function renderPage(pageData){
+  const s = document.createElement("div");
+  s.className = "sheet";
+  const inner = document.createElement("div");
+  inner.className = "sheet-inner";
+  s.appendChild(inner);
 
-function buildPrintHost(){
-  const host = document.getElementById("printHost");
-  host.innerHTML = "";
-  state.pages.forEach((p, idx)=>{
-    const sheet = renderPage(idx);
-    sheet.style.width = "210mm";
-    sheet.style.height = "297mm";
-    host.appendChild(sheet);
-  });
-  return host;
-}
-function clearPrintHost(){
-  document.getElementById("printHost").innerHTML = "";
-}
+  const f = pageData.fields;
 
-const prog = {
-  wrap: document.getElementById("progress"),
-  title: document.getElementById("progressTitle"),
-  bar: document.getElementById("progressBar"),
-  note: document.getElementById("progressNote"),
-  show(t){ this.wrap.classList.add("show"); this.title.textContent = t || "PDFを作成しています…"; this.set(0); },
-  hide(){ this.wrap.classList.remove("show"); },
-  set(p){ this.bar.style.width = `${Math.max(0,Math.min(100,p))}%`; }
-};
+  // Header Area (全ページ共通か、P1のみ特別か)
+  if(pageData.id === "p1"){
+    // Hero
+    const hero = document.createElement("div");
+    hero.className = "hero";
+    hero.innerHTML = `<div><div class="h1">サポートブック</div><div class="note">学校・支援者の方へ「この子の取扱説明書」</div></div>`;
+    inner.appendChild(hero);
 
-async function generatePdfAllPages(){
-  // ライブラリ存在チェック
-  if(!window.html2canvas || !window.jspdf || !window.jspdf.jsPDF){
-    alert("PDF生成ライブラリの読み込みに失敗しました。通信状況をご確認ください。");
-    return;
-  }
+    // Meta & Main Photo
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    
+    const ph = renderPhoto(f.photoMain, "large", ()=>editPhoto(pageData.id, "photoMain"));
+    meta.appendChild(ph);
 
-  prog.show("PDFを作成しています…");
-  prog.note.textContent = "画像が多いと時間がかかります。";
+    const grid = document.createElement("div");
+    grid.className = "infoGrid";
+    grid.appendChild(renderBox("更新日", f.updatedDate, "例: 2024/4/1", ()=>editTxt(pageData.id, "updatedDate")));
+    grid.appendChild(renderBox("氏名", f.childName, "タップして入力", ()=>editTxt(pageData.id, "childName")));
+    grid.appendChild(renderBox("愛称", f.nickname, "例: 〇〇くん", ()=>editTxt(pageData.id, "nickname")));
+    grid.appendChild(renderBox("生年月日 / 年齢", f.birth ? `${f.birth} (${f.age}歳)` : "", "タップして入力", ()=>editBirth(pageData.id)));
+    grid.appendChild(renderBox("診断名（任意）", f.diagnosis, "入力なしでもOK", ()=>editTxt(pageData.id, "diagnosis"), true));
+    grid.appendChild(renderBox("はじめに", f.messageShort, "タップして入力（例文あり）", ()=>editTxt(pageData.id, "messageShort"), true));
+    meta.appendChild(grid);
+    inner.appendChild(meta);
 
-  const host = buildPrintHost();
-  // 画面外でもレンダリングが安定するよう少し待つ
-  await new Promise(r=>requestAnimationFrame(()=>r()));
-  await new Promise(r=>setTimeout(r, 50));
+    // Sub Photos
+    inner.appendChild(secTitle("写真（好きなもの・安心グッズ）"));
+    const r = document.createElement("div"); r.className = "imgRow";
+    r.appendChild(renderPhoto(f.photoSub1, "small", ()=>editPhoto(pageData.id, "photoSub1")));
+    r.appendChild(renderPhoto(f.photoSub2, "small", ()=>editPhoto(pageData.id, "photoSub2")));
+    r.innerHTML += `<div class="note">※写真枠をタップして画像を設定</div>`;
+    inner.appendChild(r);
+  } 
+  else {
+    // Other Pages
+    const h = document.createElement("div");
+    h.className = "h1";
+    h.style.fontSize = "18px"; h.style.marginBottom="4mm";
+    h.textContent = pageData.title;
+    inner.appendChild(h);
 
-  const pages = Array.from(host.querySelectorAll(".sheet"));
-  const { jsPDF } = window.jspdf;
+    if(pageData.id === "p2"){
+       const ig = document.createElement("div"); ig.className="imgGrid";
+       ig.appendChild(renderPhoto(f.photo1,"small",()=>editPhoto("p2","photo1")));
+       ig.appendChild(renderPhoto(f.photo2,"small",()=>editPhoto("p2","photo2")));
+       ig.appendChild(renderPhoto(f.photo3,"small",()=>editPhoto("p2","photo3")));
+       inner.appendChild(ig);
+       
+       inner.appendChild(secTitle("強み・興味"));
+       const g1 = document.createElement("div"); g1.className="infoGrid";
+       g1.appendChild(renderBox("強み・得意なこと", f.strengths, "例文あり", ()=>editTxt("p2","strengths"), true));
+       g1.appendChild(renderBox("興味・好きなもの", f.interests, "例文あり", ()=>editTxt("p2","interests"), true));
+       inner.appendChild(g1);
 
-  const pdf = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
-  const pageW = 210;
-  const pageH = 297;
+       inner.appendChild(secTitle("苦手・落ち着く方法"));
+       const g2 = document.createElement("div"); g2.className="twoCol";
+       g2.appendChild(renderBox("苦手（パニックの要因）", f.triggers, "例文あり", ()=>editTxt("p2","triggers")));
+       g2.appendChild(renderBox("落ち着く方法（対応策）", f.calming, "例文あり", ()=>editTxt("p2","calming")));
+       inner.appendChild(g2);
+    }
+    if(pageData.id === "p3"){
+       const ig = document.createElement("div"); ig.className="imgGrid";
+       ig.appendChild(renderPhoto(f.photo1,"small",()=>editPhoto("p3","photo1")));
+       ig.appendChild(renderPhoto(f.photo2,"small",()=>editPhoto("p3","photo2")));
+       ig.appendChild(renderPhoto(f.photo3,"small",()=>editPhoto("p3","photo3")));
+       inner.appendChild(ig);
 
-  // 端末負荷を考慮してスケールは控えめ（必要なら 2.0 へ）
-  const scale = 1.6;
+       inner.appendChild(secTitle("コミュニケーション"));
+       inner.appendChild(renderBox("本人にとって分かりやすい伝え方", f.understand, "例：短い言葉で、絵カードで", ()=>editTxt("p3","understand"), true));
+       inner.appendChild(renderBox("本人の意思表示の方法", f.express, "例：クレーン現象、エコラリア", ()=>editTxt("p3","express"), true));
+       inner.appendChild(renderBox("支援のコツ", f.supportTips, "例：見通しを伝える", ()=>editTxt("p3","supportTips"), true));
+    }
+    if(pageData.id === "p4"){
+       const ig = document.createElement("div"); ig.className="imgGrid";
+       ig.appendChild(renderPhoto(f.photo1,"small",()=>editPhoto("p4","photo1")));
+       ig.appendChild(renderPhoto(f.photo2,"small",()=>editPhoto("p4","photo2")));
+       ig.appendChild(renderPhoto(f.photo3,"small",()=>editPhoto("p4","photo3")));
+       inner.appendChild(ig);
 
-  for(let i=0;i<pages.length;i++){
-    prog.set(Math.round((i / Math.max(1,pages.length)) * 100));
-    prog.title.textContent = `PDF作成：${i+1}/${pages.length}ページ`;
+       const tc = document.createElement("div"); tc.className="twoCol";
+       tc.appendChild(renderBox("感覚（音・光・触覚）", f.sensory, "例文あり", ()=>editTxt("p4","sensory")));
+       tc.appendChild(renderBox("生活（食事・排泄・着替え）", f.life, "例文あり", ()=>editTxt("p4","life")));
+       tc.style.marginBottom="4mm";
+       inner.appendChild(tc);
+       inner.appendChild(renderBox("学習・手先の作業", f.learning, "例文あり", ()=>editTxt("p4","learning"), true));
+       
+       inner.appendChild(secTitle("学校生活の場面別"));
+       const g = document.createElement("div"); g.className="twoCol";
+       g.appendChild(renderBox("登校・朝の準備", f.schoolArrival, "例文あり", ()=>editTxt("p4","schoolArrival")));
+       g.appendChild(renderBox("授業中", f.schoolClass, "例文あり", ()=>editTxt("p4","schoolClass")));
+       g.appendChild(renderBox("休み時間", f.schoolRecess, "例文あり", ()=>editTxt("p4","schoolRecess")));
+       g.appendChild(renderBox("下校・切り替え", f.schoolDismissal, "例文あり", ()=>editTxt("p4","schoolDismissal")));
+       inner.appendChild(g);
 
-    const node = pages[i];
+       inner.appendChild(secTitle("パニック・不穏時"));
+       inner.appendChild(renderBox("サイン・予兆", f.panicSigns, "例文あり", ()=>editTxt("p4","panicSigns"), true));
+       inner.appendChild(renderBox("対応方法", f.panicSupport, "例文あり", ()=>editTxt("p4","panicSupport"), true));
+    }
+    if(pageData.id === "p5"){
+      inner.appendChild(secTitle("具体的な場面と対応（リスト）"));
+      
+      const t = document.createElement("div"); t.className="table";
+      const thead = document.createElement("div"); thead.className="trow";
+      thead.innerHTML = `<div class="tcell">場面</div><div class="tcell">事実・困りごと</div><div class="tcell">お願いしたい対応</div>`;
+      t.appendChild(thead);
+      
+      f.rows.forEach((r, idx)=>{
+        const tr = document.createElement("div"); tr.className="trow";
+        tr.appendChild(renderTCell(r.s, "場面", ()=>editRow(idx, "s")));
+        tr.appendChild(renderTCell(r.f, "事実", ()=>editRow(idx, "f")));
+        tr.appendChild(renderTCell(r.t, "対応", ()=>editRow(idx, "t")));
+        t.appendChild(tr);
+      });
+      inner.appendChild(t);
 
-    // 透過/背景の差異を避けるため白背景でキャプチャ
-    const canvas = await html2canvas(node, {
-      backgroundColor: "#ffffff",
-      scale,
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-      windowWidth: node.scrollWidth,
-      windowHeight: node.scrollHeight
-    });
+      // 行追加削除ボタン（印刷時はCSSで消える）
+      const acts = document.createElement("div"); acts.className="no-print"; acts.style.marginTop="5px";
+      acts.innerHTML = `<button class="btn" onclick="addRow()">＋行を追加</button> <button class="btn" onclick="delRow()">−行を削除</button>`;
+      inner.appendChild(acts);
 
-    const imgData = canvas.toDataURL("image/jpeg", 0.92);
-
-    if(i>0) pdf.addPage();
-    pdf.addImage(imgData, "JPEG", 0, 0, pageW, pageH, undefined, "FAST");
-
-    // メモリ逃がし
-    canvas.width = 1; canvas.height = 1;
-    await new Promise(r=>setTimeout(r, 20));
-  }
-
-  prog.set(100);
-  prog.title.textContent = "PDFを準備しています…";
-
-  const blob = pdf.output("blob");
-  clearPrintHost();
-  prog.hide();
-
-  const fileName = `support_book_${new Date().toISOString().slice(0,10)}.pdf`;
-  const file = new File([blob], fileName, { type:"application/pdf" });
-
-  // Android Chrome: Web Share API があれば共有/保存先選択が出しやすい
-  if(navigator.canShare && navigator.canShare({ files:[file] }) && navigator.share){
-    try{
-      await navigator.share({ files:[file], title:"サポートブックPDF", text:"サポートブックのPDFです。" });
-      return;
-    }catch(e){
-      // shareキャンセル等はフォールバックへ
+      inner.appendChild(secTitle("先生へのメッセージ・補足写真"));
+      inner.appendChild(renderBox("メッセージ", f.teacherMessage, "例文あり", ()=>editTxt("p5","teacherMessage"), true));
+      
+      const ig = document.createElement("div"); ig.className="imgGrid";
+      ig.style.marginTop="4mm";
+      ig.appendChild(renderPhoto(f.photo1,"small",()=>editPhoto("p5","photo1")));
+      ig.appendChild(renderPhoto(f.photo2,"small",()=>editPhoto("p5","photo2")));
+      ig.appendChild(renderPhoto(f.photo3,"small",()=>editPhoto("p5","photo3")));
+      inner.appendChild(ig);
     }
   }
 
-  // フォールバック：新規タブで開く（そこから保存）
-  const url = URL.createObjectURL(blob);
-  window.open(url, "_blank");
-  setTimeout(()=>URL.revokeObjectURL(url), 60000);
-}
-
-function startPrintOrPdf(){
-  // PCは印刷
-  if(!isMobile){
-    // 印刷用DOMを組み立ててから印刷（PCは安定）
-    buildPrintHost();
-    const onAfter = ()=>{
-      window.removeEventListener("afterprint", onAfter);
-      clearPrintHost();
-    };
-    window.addEventListener("afterprint", onAfter);
-    window.print();
-    // afterprintが来ない環境の保険
-    setTimeout(()=>{ try{ window.removeEventListener("afterprint", onAfter); }catch(_){}
-      clearPrintHost();
-    }, 10000);
-    return;
-  }
-
-  // スマホはPDF生成（特にAndroid Chromeで確実）
-  generatePdfAllPages();
-}
-
-/* =========================
-   Page renderer
-========================= */
-function renderPage(idx){
-  const page = state.pages[idx];
-  const s = document.createElement("div");
-  s.className = "sheet";
-
-  const inner = document.createElement("div");
-  inner.className = "sheet-inner";
-
-  if(page.id==="p1"){
-    const hero = el("div","hero","");
-    const left = el("div","","");
-    left.appendChild(el("div","h1","サポートブック"));
-    left.appendChild(el("div","note","学校・支援者の方へ「この子の安心の取り扱い説明書」"));
-    hero.appendChild(left);
-    hero.appendChild(el("div","badge","📄 A4 / 5ページ"));
-    inner.appendChild(hero);
-
-    const meta = el("div","meta","");
-    const mainPhoto = renderPhotoCard(page.fields.photoMain, "large");
-    mainPhoto.onclick = ()=> openPhotoEditor("p1","photoMain");
-    meta.appendChild(mainPhoto);
-
-    const grid = el("div","infoGrid","");
-    grid.appendChild(renderBox("更新日", valOrHint(page.fields.updatedDate,"タップして入力"), ()=>editField("p1","updatedDate")));
-    grid.appendChild(renderBox("氏名", valOrHint(page.fields.childName,"タップして入力"), ()=>editField("p1","childName")));
-    grid.appendChild(renderBox("愛称", valOrHint(page.fields.nickname,"例：〇〇"), ()=>editField("p1","nickname")));
-    grid.appendChild(renderBox("生年月日 / 年齢", valOrHint(combineBirthAge(page.fields.birth,page.fields.age),"タップして入力"), ()=>editBirthAge()));
-    grid.appendChild(renderBox("診断名（任意）", valOrHint(page.fields.diagnosis,"任意"), ()=>editField("p1","diagnosis")));
-    grid.appendChild(renderBox("一言メッセージ（任意）", valOrHint(page.fields.messageShort,"例文あり"), ()=>editField("p1","messageShort"), {wide:true}));
-    meta.appendChild(grid);
-
-    inner.appendChild(meta);
-
-    inner.appendChild(sectionTitle("📸 写真（好きなもの・安心グッズなど）"));
-    const row = el("div","imgRow","");
-    const s1 = renderPhotoCard(page.fields.photoSub1,"small");
-    s1.onclick = ()=> openPhotoEditor("p1","photoSub1");
-    const s2 = renderPhotoCard(page.fields.photoSub2,"small");
-    s2.onclick = ()=> openPhotoEditor("p1","photoSub2");
-    row.appendChild(s1); row.appendChild(s2);
-    row.appendChild(el("div","note","写真枠は今後さらに増やせます。"));
-    inner.appendChild(row);
-  }
-
-  if(page.id==="p2"){
-    inner.appendChild(sectionTitle("🌟 いいところ・好きなこと"));
-    const img = el("div","imgGrid","");
-    const a = renderPhotoCard(page.fields.photo1,"small"); a.onclick=()=>openPhotoEditor("p2","photo1");
-    const b = renderPhotoCard(page.fields.photo2,"small"); b.onclick=()=>openPhotoEditor("p2","photo2");
-    const c = renderPhotoCard(page.fields.photo3,"small"); c.onclick=()=>openPhotoEditor("p2","photo3");
-    img.appendChild(a); img.appendChild(b); img.appendChild(c);
-    inner.appendChild(img);
-
-    inner.appendChild(renderBox("強み", valOrHint(page.fields.strengths,"例文あり"), ()=>editField("p2","strengths"), {wide:true}));
-    inner.appendChild(renderBox("興味・好きなもの", valOrHint(page.fields.interests,"例文あり"), ()=>editField("p2","interests"), {wide:true}));
-
-    inner.appendChild(sectionTitle("🧩 苦手 / 落ち着けるヒント"));
-    const tc = el("div","twoCol","");
-    tc.appendChild(renderBox("苦手（事実）", valOrHint(page.fields.triggers,"例文あり"), ()=>editField("p2","triggers")));
-    tc.appendChild(renderBox("落ち着く方法（対策）", valOrHint(page.fields.calming,"例文あり"), ()=>editField("p2","calming")));
-    inner.appendChild(tc);
-  }
-
-  if(page.id==="p3"){
-    inner.appendChild(sectionTitle("📢 伝え方・コミュニケーション"));
-    const img = el("div","imgGrid","");
-    const a = renderPhotoCard(page.fields.photo1,"small"); a.onclick=()=>openPhotoEditor("p3","photo1");
-    const b = renderPhotoCard(page.fields.photo2,"small"); b.onclick=()=>openPhotoEditor("p3","photo2");
-    const c = renderPhotoCard(page.fields.photo3,"small"); c.onclick=()=>openPhotoEditor("p3","photo3");
-    img.appendChild(a); img.appendChild(b); img.appendChild(c);
-    inner.appendChild(img);
-
-    inner.appendChild(renderBox("理解しやすい伝え方", valOrHint(page.fields.understand,"例文あり"), ()=>editField("p3","understand"), {wide:true}));
-    inner.appendChild(renderBox("本人の伝え方", valOrHint(page.fields.express,"例文あり"), ()=>editField("p3","express"), {wide:true}));
-    inner.appendChild(renderBox("支援のヒント（事実＋対策）", valOrHint(page.fields.supportTips,"例文あり"), ()=>editField("p3","supportTips"), {wide:true}));
-  }
-
-  if(page.id==="p4"){
-    inner.appendChild(sectionTitle("🏫 学校生活 / 配慮ポイント"));
-    const img = el("div","imgGrid","");
-    const a = renderPhotoCard(page.fields.photo1,"small"); a.onclick=()=>openPhotoEditor("p4","photo1");
-    const b = renderPhotoCard(page.fields.photo2,"small"); b.onclick=()=>openPhotoEditor("p4","photo2");
-    const c = renderPhotoCard(page.fields.photo3,"small"); c.onclick=()=>openPhotoEditor("p4","photo3");
-    img.appendChild(a); img.appendChild(b); img.appendChild(c);
-    inner.appendChild(img);
-
-    const g = el("div","twoCol","");
-    g.appendChild(renderBox("感覚（音・光など）", valOrHint(page.fields.sensory,"例文あり"), ()=>editField("p4","sensory")));
-    g.appendChild(renderBox("生活（トイレ・給食など）", valOrHint(page.fields.life,"例文あり"), ()=>editField("p4","life")));
-    g.appendChild(renderBox("学習（板書・作業など）", valOrHint(page.fields.learning,"例文あり"), ()=>editField("p4","learning"), {wide:true}));
-    inner.appendChild(g);
-
-    inner.appendChild(sectionTitle("🏫 学校生活でのポイント（場面別）"));
-    const sp = el("div","twoCol","");
-    sp.appendChild(renderBox("朝の準備・登校", valOrHint(page.fields.schoolArrival,"例文あり"), ()=>editField("p4","schoolArrival")));
-    sp.appendChild(renderBox("授業中（指示・板書など）", valOrHint(page.fields.schoolClass,"例文あり"), ()=>editField("p4","schoolClass")));
-    sp.appendChild(renderBox("休み時間・集団場面", valOrHint(page.fields.schoolRecess,"例文あり"), ()=>editField("p4","schoolRecess")));
-    sp.appendChild(renderBox("下校・切り替え", valOrHint(page.fields.schoolDismissal,"例文あり"), ()=>editField("p4","schoolDismissal")));
-    inner.appendChild(sp);
-
-    inner.appendChild(sectionTitle("⚠️ 不安が強い時・パニック時"));
-    inner.appendChild(renderBox("予兆（事実）", valOrHint(page.fields.panicSigns,"例文あり"), ()=>editField("p4","panicSigns"), {wide:true}));
-    inner.appendChild(renderBox("対応（対策）", valOrHint(page.fields.panicSupport,"例文あり"), ()=>editField("p4","panicSupport"), {wide:true}));
-  }
-
-  if(page.id==="p5"){
-    inner.appendChild(sectionTitle("📝 場面別（事実＋対策）"));
-    inner.appendChild(renderScenarioTable(page.fields.rows));
-    inner.appendChild(el("div","note","必要なら行数を増やせます。"));
-
-    inner.appendChild(sectionTitle("📸 補足写真（持ち物・連絡方法など）"));
-    const img = el("div","imgGrid","");
-    const a = renderPhotoCard(page.fields.photo1,"small"); a.onclick=()=>openPhotoEditor("p5","photo1");
-    const b = renderPhotoCard(page.fields.photo2,"small"); b.onclick=()=>openPhotoEditor("p5","photo2");
-    const c = renderPhotoCard(page.fields.photo3,"small"); c.onclick=()=>openPhotoEditor("p5","photo3");
-    img.appendChild(a); img.appendChild(b); img.appendChild(c);
-    inner.appendChild(img);
-
-    inner.appendChild(sectionTitle("✉️ 先生へのメッセージ"));
-    inner.appendChild(renderBox("メッセージ", valOrHint(page.fields.teacherMessage,"例文あり"), ()=>editField("p5","teacherMessage"), {wide:true}));
-  }
-
-  s.appendChild(inner);
   return s;
 }
 
-function sectionTitle(text){
-  const h = document.createElement("h2");
-  h.className = "secTitle";
-  h.textContent = text;
-  return h;
-}
-function renderBox(label, value, onTap, opts={}){
-  const b = document.createElement("div");
-  b.className = "box" + (opts.wide ? " wide" : "");
-  b.setAttribute("role","button");
-  b.tabIndex = 0;
-  b.onclick = (e)=>{ e.stopPropagation(); onTap?.(); };
-  b.onkeydown = (e)=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); onTap?.(); } };
-  b.appendChild(el("div","lbl", label));
-  b.appendChild(el("div","val", value));
-  return b;
-}
+/* Helpers */
+function secTitle(t){ const d=document.createElement("div"); d.className="secTitle"; d.textContent=t; return d; }
 
-/* Scenario table */
-function renderScenarioTable(rows){
-  const t = document.createElement("div");
-  t.className = "table";
-
-  const head = document.createElement("div");
-  head.className = "trow thead";
-  head.appendChild(el("div","tcell","場面"));
-  head.appendChild(el("div","tcell","事実（困りごと）"));
-  head.appendChild(el("div","tcell","対策（具体的お願い）"));
-  t.appendChild(head);
-
-  rows.forEach((r, i)=>{
-    const tr = document.createElement("div");
-    tr.className = "trow";
-    tr.appendChild(cellBtn(r.scene || "タップ", ()=>editTableRow(i), !r.scene));
-    tr.appendChild(cellBtn(r.fact || "タップして入力", ()=>editTableRow(i), !r.fact));
-    tr.appendChild(cellBtn(r.support || "タップして入力", ()=>editTableRow(i), !r.support));
-    t.appendChild(tr);
-  });
-
-  const add = document.createElement("div");
-  add.className = "no-print";
-  add.style.padding = "8px 0 0 0";
-
-  const btn = document.createElement("button");
-  btn.className = "btn";
-  btn.textContent = "＋ 行を追加";
-  btn.onclick = (e)=>{
-    e.stopPropagation();
-    state.pages.find(p=>p.id==="p5").fields.rows.push({scene:"", fact:"", support:""});
-    render();
-  };
-  add.appendChild(btn);
-
-  const btn2 = document.createElement("button");
-  btn2.className = "btn";
-  btn2.style.marginLeft = "8px";
-  btn2.textContent = "− 最後の行を削除";
-  btn2.onclick = (e)=>{
-    e.stopPropagation();
-    const arr = state.pages.find(p=>p.id==="p5").fields.rows;
-    if(arr.length>1) arr.pop();
-    render();
-  };
-  add.appendChild(btn2);
-
-  t.appendChild(add);
-  return t;
-}
-function cellBtn(text, onTap, isHint){
-  const c = document.createElement("div");
-  c.className = "tcell btncell";
-  c.onclick = (e)=>{ e.stopPropagation(); onTap?.(); };
-  c.onkeydown = (e)=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); onTap?.(); } };
-  c.tabIndex = 0;
-
-  const span = document.createElement("div");
-  span.className = isHint ? "hint" : "txt";
-  span.textContent = text;
-  c.appendChild(span);
-  return c;
-}
-
-/* DOM helper */
-function el(tag, cls, text){
-  const d = document.createElement(tag);
-  if(cls) d.className = cls;
-  if(text!==undefined) d.textContent = text;
+function renderBox(lbl, val, hint, onClick, isWide){
+  const d = document.createElement("div");
+  d.className = "box" + (isWide?" wide":"");
+  d.onclick = onClick;
+  
+  const l = document.createElement("div"); l.className="lbl"; l.textContent = lbl;
+  d.appendChild(l);
+  
+  const v = document.createElement("div"); v.className="val";
+  if(val){
+    v.textContent = val;
+  } else {
+    // ヒントを表示（印刷時は消すためのクラスをつける）
+    const s = document.createElement("span");
+    s.className = "hint-text";
+    s.textContent = hint;
+    v.appendChild(s);
+  }
+  d.appendChild(v);
   return d;
 }
 
-/* =========================
-   Photo rendering
-========================= */
-function renderPhotoCard(photo, size="small"){
-  const c = document.createElement("div");
-  c.className = "photoCard " + size;
-  c.title = "タップして写真を設定";
+function renderTCell(val, hint, onClick){
+  const d = document.createElement("div"); d.className="tcell btncell";
+  d.onclick = onClick;
+  if(val) d.textContent = val;
+  else d.innerHTML = `<span class="hint-text">${hint}</span>`;
+  return d;
+}
 
-  const ph = document.createElement("div");
-  ph.className = "ph";
-  ph.textContent = "タップして\n写真";
-  c.appendChild(ph);
-
-  if(photo?.dataUrl){
-    ph.style.display = "none";
+function renderPhoto(phObj, size, onClick){
+  const d = document.createElement("div"); d.className="photoCard "+size;
+  d.onclick = onClick;
+  
+  if(phObj.dataUrl){
     const img = document.createElement("img");
-    img.src = photo.dataUrl;
-    const rot = photo.rot || 0;
-    const scale = photo.scale || 1;
-    const x = photo.x || 0;
-    const y = photo.y || 0;
-    img.style.left = "50%";
-    img.style.top = "50%";
-    img.style.width = "120%";
-    img.style.height = "auto";
-    img.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rot}deg) scale(${scale})`;
-    c.appendChild(img);
+    img.src = phObj.dataUrl;
+    // 簡易的な中央寄せスケール（本格的なエディタは省略）
+    img.style.width="100%"; img.style.height="100%"; img.style.objectFit="cover";
+    d.appendChild(img);
+  } else {
+    const p = document.createElement("div"); p.className="ph-placeholder";
+    p.textContent = "写真を\n選択";
+    d.appendChild(p);
   }
-
-  const cap = document.createElement("div");
-  cap.className = "cap";
-  cap.innerHTML = `<div>${escapeHtml(photo?.caption || "写真")}</div><small>タップで編集</small>`;
-  c.appendChild(cap);
-
-  return c;
-}
-function escapeHtml(s){
-  return String(s ?? "").replace(/[&<>"']/g, (m)=>({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-  }[m]));
+  
+  const cap = document.createElement("div"); cap.className="cap";
+  cap.innerHTML = `<span>${phObj.caption||""}</span><small>編集</small>`;
+  d.appendChild(cap);
+  
+  return d;
 }
 
-/* =========================
-   Modal editor (text & table)
-========================= */
+/* --- 3. Interaction & Modal --- */
 const modal = document.getElementById("modal");
-const modalTitle = document.getElementById("modalTitle");
-const modalBody = document.getElementById("modalBody");
-const btnClose = document.getElementById("btnClose");
-const btnSaveField = document.getElementById("btnSaveField");
-const btnInsertExample = document.getElementById("btnInsertExample");
+const mBody = document.getElementById("modalBody");
+let currentSaveAction = null;
 
-btnClose.onclick = ()=> closeModal();
-modal.onclick = (e)=>{ if(e.target===modal) closeModal(); };
-
-function closeModal(){
+function openModal(renderFn, onSave){
+  mBody.innerHTML = "";
+  mBody.appendChild(renderFn());
+  currentSaveAction = onSave;
+  modal.classList.add("show");
+}
+document.getElementById("btnCloseModal").onclick = ()=> modal.classList.remove("show");
+document.getElementById("btnSaveField").onclick = ()=>{
+  if(currentSaveAction) currentSaveAction();
   modal.classList.remove("show");
-  modalBody.innerHTML = "";
-  phCtx = null;
-  phImgEl = null;
-  phCanvas = null;
-  phStart = null;
+  render();
+};
+
+/* Edit Functions */
+function editTxt(pgId, fieldKey){
+  const page = state.pages.find(p=>p.id===pgId);
+  openModal(()=>{
+    const w = document.createElement("div");
+    w.innerHTML = `<div style="font-weight:bold;margin-bottom:5px;">内容を入力</div>`;
+    const ta = document.createElement("textarea");
+    ta.id = "editorArea";
+    ta.value = page.fields[fieldKey];
+    w.appendChild(ta);
+    // 例文ボタン用
+    const ex = EXAMPLES[pgId]?.[fieldKey];
+    document.getElementById("btnExample").style.display = ex ? "block" : "none";
+    document.getElementById("btnExample").onclick = ()=> ta.value = ex;
+    return w;
+  }, ()=>{
+    page.fields[fieldKey] = document.getElementById("editorArea").value;
+  });
 }
 
-function editField(pageId, key){
-  const page = state.pages.find(p=>p.id===pageId);
-  const value = page.fields[key] ?? "";
-
-  modalTitle.textContent = "入力：" + labelFor(pageId, key);
-  modalBody.innerHTML = "";
-  const ta = document.createElement("textarea");
-  ta.value = value;
-  ta.placeholder = "ここに入力（空欄OK）";
-  modalBody.appendChild(ta);
-
-  btnInsertExample.style.display = "inline-flex";
-  btnInsertExample.onclick = ()=>{
-    const ex = EXAMPLES[pageId]?.[key];
-    if(ex!==undefined) ta.value = ex;
-    else alert("この項目の例文は未設定です。");
-  };
-
-  btnSaveField.onclick = ()=>{
-    setField(pageId, key, ta.value);
-    closeModal();
-    render();
-  };
-
-  modal.classList.add("show");
-  setTimeout(()=>ta.focus(), 50);
+function editBirth(pgId){
+  const page = state.pages.find(p=>p.id===pgId);
+  openModal(()=>{
+    const w = document.createElement("div");
+    w.innerHTML = `
+      <div style="margin-bottom:10px;"><label>生年月日</label><input type="date" id="inpBirth" style="width:100%;padding:8px;font-size:16px;" value="${page.fields.birth}"></div>
+      <div><label>年齢</label><input type="number" id="inpAge" style="width:100%;padding:8px;font-size:16px;" value="${page.fields.age}"></div>
+    `;
+    document.getElementById("btnExample").style.display = "none";
+    return w;
+  }, ()=>{
+    page.fields.birth = document.getElementById("inpBirth").value;
+    page.fields.age = document.getElementById("inpAge").value;
+  });
 }
 
-function labelFor(pageId, key){
-  const map = {
-    p1:{ updatedDate:"更新日", childName:"氏名", nickname:"愛称", birth:"生年月日", age:"年齢", diagnosis:"診断名", messageShort:"一言メッセージ" },
-    p2:{ strengths:"強み", interests:"興味・好きなもの", triggers:"苦手（事実）", calming:"落ち着く方法（対策）" },
-    p3:{ understand:"理解しやすい伝え方", express:"本人の伝え方", supportTips:"支援のヒント" },
-    p4:{
-      sensory:"感覚", life:"生活", learning:"学習",
-      schoolArrival:"朝の準備・登校", schoolClass:"授業中", schoolRecess:"休み時間・集団", schoolDismissal:"下校・切り替え",
-      panicSigns:"予兆", panicSupport:"対応"
-    },
-    p5:{ teacherMessage:"先生へのメッセージ" }
-  };
-  return (map[pageId] && map[pageId][key]) ? map[pageId][key] : key;
-}
-
-function editBirthAge(){
-  modalTitle.textContent = "生年月日 / 年齢";
-  modalBody.innerHTML = "";
-
-  const p1 = state.pages.find(p=>p.id==="p1").fields;
-
-  const birth = document.createElement("input");
-  birth.type = "text";
-  birth.placeholder = "生年月日（例：2019/04/01）";
-  birth.value = p1.birth || "";
-  const age = document.createElement("input");
-  age.type = "text";
-  age.placeholder = "年齢（例：6歳3か月）";
-  age.value = p1.age || "";
-
-  modalBody.appendChild(birth);
-  modalBody.appendChild(el("div","note",""));
-  modalBody.appendChild(age);
-
-  btnInsertExample.style.display = "none";
-
-  btnSaveField.onclick = ()=>{
-    p1.birth = birth.value;
-    p1.age = age.value;
-    closeModal();
-    render();
-  };
-
-  modal.classList.add("show");
-  setTimeout(()=>birth.focus(), 50);
-}
-
-function editTableRow(idx){
+function editRow(rowIdx, key){
   const page = state.pages.find(p=>p.id==="p5");
-  const row = page.fields.rows[idx] || {scene:"", fact:"", support:""};
-
-  modalTitle.textContent = "場面別（行 " + (idx+1) + "）";
-  modalBody.innerHTML = "";
-
-  const scene = document.createElement("input");
-  scene.type = "text";
-  scene.placeholder = "場面（例：予定の変更）";
-  scene.value = row.scene || "";
-
-  const fact = document.createElement("textarea");
-  fact.placeholder = "事実（困りごと）";
-  fact.value = row.fact || "";
-
-  const sup = document.createElement("textarea");
-  sup.placeholder = "対策（具体的お願い）";
-  sup.value = row.support || "";
-
-  modalBody.appendChild(scene);
-  modalBody.appendChild(el("div","note",""));
-  modalBody.appendChild(fact);
-  modalBody.appendChild(el("div","note",""));
-  modalBody.appendChild(sup);
-
-  btnInsertExample.style.display = "none";
-
-  btnSaveField.onclick = ()=>{
-    row.scene = scene.value;
-    row.fact = fact.value;
-    row.support = sup.value;
-    page.fields.rows[idx] = row;
-    closeModal();
-    render();
-  };
-
-  modal.classList.add("show");
-  setTimeout(()=>scene.focus(), 50);
-}
-
-/* =========================
-   Photo editor modal
-   - rotate: 90° button with icon
-   - pinch: scale
-========================= */
-let phCtx = null;
-let phImgEl = null;
-let phCanvas = null;
-let phStart = null;
-
-function openPhotoEditor(pageId, key){
-  const ref = getPhotoRef(pageId, key);
-  phCtx = { pageId, key, ref };
-
-  modalTitle.textContent = "写真編集：" + (ref.caption || "写真");
-  modalBody.innerHTML = "";
-
-  const wrap = document.createElement("div");
-  wrap.className = "photoEditor";
-
-  const cap = document.createElement("input");
-  cap.type = "text";
-  cap.placeholder = "キャプション（例：教室／好きなもの など）";
-  cap.value = ref.caption || "";
-  wrap.appendChild(cap);
-
-  phCanvas = document.createElement("div");
-  phCanvas.className = "phCanvas";
-  wrap.appendChild(phCanvas);
-
-  phImgEl = document.createElement("img");
-  phCanvas.appendChild(phImgEl);
-
-  const tools = document.createElement("div");
-  tools.className = "phTools";
-
-  const row1 = document.createElement("div");
-  row1.className = "toolRow";
-
-  const btnPick = document.createElement("button");
-  btnPick.className = "btn";
-  btnPick.textContent = "画像を選ぶ";
-  btnPick.onclick = (e)=>{ e.stopPropagation(); pickImage(false); };
-
-  const btnCam = document.createElement("button");
-  btnCam.className = "btn";
-  btnCam.textContent = "カメラ";
-  btnCam.onclick = (e)=>{ e.stopPropagation(); pickImage(true); };
-
-  const btnRotate = document.createElement("button");
-  btnRotate.className = "btn icon";
-  btnRotate.innerHTML = rotateIcon() + "90°回転";
-  btnRotate.onclick = (e)=>{
-    e.stopPropagation();
-    ref.rot = ((ref.rot || 0) + 90) % 360;
-    syncPh();
-  };
-
-  const btnDel = document.createElement("button");
-  btnDel.className = "btn";
-  btnDel.textContent = "削除";
-  btnDel.onclick = (e)=>{
-    e.stopPropagation();
-    ref.dataUrl = "";
-    ref.scale = 1; ref.x = 0; ref.y = 0; ref.rot = 0;
-    syncPh();
-  };
-
-  row1.appendChild(btnPick);
-  row1.appendChild(btnCam);
-  row1.appendChild(btnRotate);
-  row1.appendChild(btnDel);
-
-  tools.appendChild(row1);
-
-  wrap.appendChild(tools);
-  wrap.appendChild(el("div","note","操作：ドラッグで移動／ピンチで拡大縮小／90°回転ボタン。"));
-
-  modalBody.appendChild(wrap);
-
-  btnInsertExample.style.display = "none";
-  btnSaveField.onclick = ()=>{
-    ref.caption = cap.value;
-    closeModal();
-    render();
-  };
-
-  modal.classList.add("show");
-
-  enableGestures(phCanvas);
-  syncPh();
-}
-
-function rotateIcon(){
-  return `
-  <svg class="ico" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M4 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M20 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M20 9a8 8 0 0 0-14.9-3M4 15a8 8 0 0 0 14.9 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-  </svg>`;
-}
-
-function pickImage(useCamera){
-  const input = useCamera ? document.getElementById("photoCam") : document.getElementById("photoFile");
-  input.onchange = async ()=>{
-    const f = input.files && input.files[0];
-    if(!f) return;
-    const url = await fileToDataUrl(f);
-    const ref = phCtx.ref;
-    ref.dataUrl = url;
-    ref.scale = 1;
-    ref.x = 0;
-    ref.y = 0;
-    ref.rot = 0;
-    syncPh();
-    input.value = "";
-  };
-  input.click();
-}
-function fileToDataUrl(file){
-  return new Promise((resolve,reject)=>{
-    const r = new FileReader();
-    r.onload = ()=> resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
+  openModal(()=>{
+    const val = page.fields.rows[rowIdx][key];
+    const ta = document.createElement("textarea");
+    ta.id = "editorArea";
+    ta.value = val;
+    document.getElementById("btnExample").style.display = "none";
+    return ta;
+  }, ()=>{
+    page.fields.rows[rowIdx][key] = document.getElementById("editorArea").value;
   });
 }
 
-function syncPh(){
-  const ref = phCtx.ref;
-  if(ref.dataUrl){
-    phImgEl.src = ref.dataUrl;
-    phImgEl.style.display = "block";
-  }else{
-    phImgEl.removeAttribute("src");
-    phImgEl.style.display = "none";
-  }
-  const rot = ref.rot || 0;
-  const scale = ref.scale || 1;
-  const x = ref.x || 0;
-  const y = ref.y || 0;
-
-  phImgEl.style.left = "50%";
-  phImgEl.style.top = "50%";
-  phImgEl.style.width = "130%";
-  phImgEl.style.height = "auto";
-  phImgEl.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rot}deg) scale(${scale})`;
+function addRow(){
+  state.pages.find(p=>p.id==="p5").fields.rows.push({s:"",f:"",t:""});
+  render();
+}
+function delRow(){
+  const arr = state.pages.find(p=>p.id==="p5").fields.rows;
+  if(arr.length>1) arr.pop();
+  render();
 }
 
-function enableGestures(canvas){
-  // ドラッグ（pointer）
-  canvas.onpointerdown = (e)=>{
-    canvas.setPointerCapture(e.pointerId);
-    phStart = getPointerState(e);
-    phStart.ref = { x: phCtx.ref.x||0, y: phCtx.ref.y||0 };
-  };
-  canvas.onpointermove = (e)=>{
-    if(!phStart) return;
-    const cur = getPointerState(e);
-    const dx = cur.x - phStart.x;
-    const dy = cur.y - phStart.y;
-    phCtx.ref.x = phStart.ref.x + dx;
-    phCtx.ref.y = phStart.ref.y + dy;
-    syncPh();
-  };
-  canvas.onpointerup = ()=>{ phStart = null; };
-  canvas.onpointercancel = ()=>{ phStart = null; };
-
-  // ピンチ（touch）：拡大縮小
-  let touches = new Map();
-
-  canvas.addEventListener("touchstart", (e)=>{
-    for(const t of e.changedTouches) touches.set(t.identifier, {x:t.clientX, y:t.clientY});
-    if(touches.size===2){
-      const pts = [...touches.values()];
-      canvas._pinch = {
-        d0: dist(pts[0], pts[1]),
-        s0: phCtx.ref.scale || 1
-      };
-    }
-  }, {passive:false});
-
-  canvas.addEventListener("touchmove", (e)=>{
-    if(touches.size===0) return;
-    for(const t of e.changedTouches) touches.set(t.identifier, {x:t.clientX, y:t.clientY});
-    if(touches.size===2 && canvas._pinch){
-      e.preventDefault();
-      const pts = [...touches.values()];
-      const d = dist(pts[0], pts[1]);
-      const p = canvas._pinch;
-      const ns = clamp(p.s0 * (d / Math.max(1,p.d0)), 0.5, 3.0);
-      phCtx.ref.scale = ns;
-      syncPh();
-    }
-  }, {passive:false});
-
-  canvas.addEventListener("touchend", (e)=>{
-    for(const t of e.changedTouches) touches.delete(t.identifier);
-    if(touches.size<2){
-      canvas._pinch = null;
-    }else if(touches.size===2){
-      const pts = [...touches.values()];
-      canvas._pinch = {
-        d0: dist(pts[0], pts[1]),
-        s0: phCtx.ref.scale || 1
-      };
-    }
-  });
-  canvas.addEventListener("touchcancel", ()=>{ touches.clear(); canvas._pinch=null; });
-}
-
-function getPointerState(e){
-  const rect = phCanvas.getBoundingClientRect();
-  return { x: e.clientX - rect.left - rect.width/2, y: e.clientY - rect.top - rect.height/2 };
-}
-function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
-function clamp(v,min,max){ return Math.min(max, Math.max(min, v)); }
-
-function getPhotoRef(pageId, key){
-  const p = state.pages.find(x=>x.id===pageId);
-  const obj = p.fields[key];
-  if(!obj || typeof obj !== "object") throw new Error("Photo slot not found: " + pageId + "." + key);
-  if(!("caption" in obj)) obj.caption = "写真";
-  return obj;
-}
-
-/* =========================
-   State helpers / persistence
-========================= */
-function setField(pageId, key, value){
-  const p = state.pages.find(x=>x.id===pageId);
-  p.fields[key] = value;
-}
-function valOrHint(v, hint){ return (v && String(v).trim().length) ? v : hint; }
-function combineBirthAge(birth, age){ return [birth, age].filter(x=>x && String(x).trim().length).join(" / "); }
-
-function persist(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
-function loadState(){
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const s = JSON.parse(raw);
-      return normalizeState(s);
-    }
-  }catch(e){}
-  return deepClone(TEMPLATE);
-}
-function normalizeState(s){
-  if(!s || !Array.isArray(s.pages)) return deepClone(TEMPLATE);
-  const out = deepClone(TEMPLATE);
-
-  out.pages.forEach(tp=>{
-    const sp = s.pages.find(p=>p.id===tp.id);
-    if(!sp || !sp.fields) return;
-
-    Object.keys(tp.fields).forEach(k=>{
-      const tv = tp.fields[k];
-      const sv = sp.fields[k];
-
-      if(typeof tv === "string"){
-        if(typeof sv === "string") tp.fields[k] = sv;
-        return;
-      }
-      if(Array.isArray(tv)){
-        if(Array.isArray(sv) && k==="rows"){
-          tp.fields.rows = sv.map(r=>({
-            scene: (r?.scene ?? ""),
-            fact: (r?.fact ?? ""),
-            support: (r?.support ?? "")
-          }));
-        }
-        return;
-      }
-      if(tv && typeof tv === "object"){
-        if(sv && typeof sv === "object"){
-          tp.fields[k].dataUrl = sv.dataUrl || tp.fields[k].dataUrl || "";
-          tp.fields[k].scale = (sv.scale ?? tp.fields[k].scale ?? 1);
-          tp.fields[k].x = (sv.x ?? tp.fields[k].x ?? 0);
-          tp.fields[k].y = (sv.y ?? tp.fields[k].y ?? 0);
-          tp.fields[k].rot = (sv.rot ?? tp.fields[k].rot ?? 0);
-          tp.fields[k].caption = (sv.caption ?? tp.fields[k].caption ?? "写真");
-        }
-      }
-    });
-  });
-
-  return out;
-}
-
-/* =========================
-   Header actions
-========================= */
-document.getElementById("btnPrint").onclick = startPrintOrPdf;
-
-document.getElementById("btnExport").onclick = ()=>{
-  const data = JSON.stringify(state, null, 2);
-  const blob = new Blob([data], {type:"application/json"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "support_book_data.json";
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(url), 2000);
-};
-
-document.getElementById("btnImport").onclick = ()=>{
-  const inp = document.createElement("input");
-  inp.type = "file";
-  inp.accept = "application/json";
-  inp.onchange = async ()=>{
-    const f = inp.files && inp.files[0];
-    if(!f) return;
-    const text = await f.text();
-    try{
-      const obj = JSON.parse(text);
-      state = normalizeState(obj);
-      currentPage = 0;
+/* Photo handling */
+function editPhoto(pgId, key){
+  const page = state.pages.find(p=>p.id===pgId);
+  const fileInp = document.getElementById("photoFile");
+  
+  // スマホで写真を撮るか選ぶかを促す（簡易版：input click）
+  fileInp.onchange = (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      page.fields[key].dataUrl = ev.target.result;
       render();
-      alert("読み込みました。");
-    }catch(e){
-      alert("読み込みに失敗しました（JSON形式を確認してください）。");
-    }
+    };
+    reader.readAsDataURL(file);
+    fileInp.value = ""; // reset
   };
-  inp.click();
-};
+  
+  // キャプション編集も含むか？今回は写真選択のみ
+  if(confirm("写真を変更しますか？\n（キャンセルでキャプションのみ編集）")){
+    fileInp.click();
+  } else {
+    const newCap = prompt("キャプションを入力", page.fields[key].caption);
+    if(newCap!==null) {
+      page.fields[key].caption = newCap;
+      render();
+    }
+  }
+}
 
-document.getElementById("btnReset").onclick = ()=>{
-  if(confirm("入力内容をリセットします。よろしいですか？")){
-    state = deepClone(TEMPLATE);
-    currentPage = 0;
-    render();
+/* --- 4. PDF Generation (Robust) --- */
+const btnExport = document.getElementById("btnExportPdf");
+const progress = document.getElementById("progress");
+const pFill = document.getElementById("pFill");
+
+btnExport.onclick = async () => {
+  // Reset PrintHost
+  printHost.innerHTML = "";
+  
+  progress.classList.add("show");
+  pFill.style.width = "0%";
+  
+  // 1. 全ページをPrintHostにレンダリング
+  // ※ここでレンダリングされる要素には .hint-text があるが、
+  // html2canvas実行前にCSSで隠すか、レンダリング時に除外する必要がある。
+  // 今回は @media print をJSからは利用できないため、
+  // 手動でクラス制御を行うか、印刷用スタイルを強制適用する。
+  
+  // 全ページDOM作成
+  state.pages.forEach(p => {
+    const el = renderPage(p);
+    // PDF生成用にスタイル調整（余計な影などを消す）
+    el.style.border = "none";
+    el.style.boxShadow = "none";
+    el.style.marginBottom = "0";
+    el.classList.add("for-pdf-gen"); // マーカークラス
+    printHost.appendChild(el);
+  });
+
+  // 画像読み込み待ち（少し待機）
+  await new Promise(r => setTimeout(r, 500));
+  
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
+    const sheets = printHost.querySelectorAll(".sheet");
+    const count = sheets.length;
+    
+    // ヒント文字を一時的に消す処理
+    const hints = printHost.querySelectorAll(".hint-text, .note, .no-print");
+    hints.forEach(el => el.style.display = "none");
+    
+    // プレースホルダー写真の文字を薄くする
+    const phs = printHost.querySelectorAll(".ph-placeholder");
+    phs.forEach(el => { el.style.opacity = "0.1"; el.style.color = "transparent"; });
+
+    for(let i=0; i<count; i++){
+      pFill.style.width = Math.round(((i)/count)*100) + "%";
+      
+      const sheet = sheets[i];
+      
+      // html2canvasの設定（スマホ向けにscaleを抑える）
+      const canvas = await html2canvas(sheet, {
+        scale: 2, // 高すぎるとクラッシュする。2あれば十分綺麗
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        width: 794, // A4 @ 96dpi approx (210mm)
+        height: 1123,
+        windowWidth: 794,
+      });
+      
+      const imgData = canvas.toDataURL("image/jpeg", 0.9); // JPEG圧縮で軽量化
+      
+      if(i > 0) doc.addPage();
+      doc.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+      
+      // メモリ解放待機
+      await new Promise(r => setTimeout(r, 50));
+    }
+    
+    pFill.style.width = "100%";
+    
+    // 保存
+    const date = new Date().toISOString().slice(0,10);
+    doc.save(`support_book_${date}.pdf`);
+    
+  } catch(e) {
+    alert("PDF作成に失敗しました。\n写真のサイズが大きすぎる可能性があります。\n" + e.message);
+    console.error(e);
+  } finally {
+    progress.classList.remove("show");
+    printHost.innerHTML = ""; // cleanup
   }
 };
 
-/* =========================
-   Init
-========================= */
-render();
-</script>
+/* Utils */
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+document.getElementById("btnReset").onclick = ()=>{
+  if(confirm("全データを消去してリセットしますか？")) {
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
+  }
+};
 
+// Initial Render
+render();
+
+</script>
 </body>
 </html>

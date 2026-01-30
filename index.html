@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>サポートブック作成ツール（スマホPDF安定版）</title>
+<title>サポートブック作成ツール（日付・タブ改善版）</title>
 
 <style>
   :root{
@@ -62,6 +62,7 @@
     font-weight:800;
     cursor:pointer;
     user-select:none;
+    transition: transform 0.1s;
   }
   .btn.primary{
     background:linear-gradient(135deg,var(--accent), var(--accent2));
@@ -69,45 +70,64 @@
     border:none;
   }
   .btn:active{ transform: translateY(1px); }
-  .btn[disabled]{ opacity:.6; cursor:not-allowed; }
 
   main{
     flex:1;
     overflow-y:auto;
-    padding:10px;
+    padding:0 0 20px 0; /* Padding adjustments */
     display:flex;
     flex-direction:column;
     align-items:center;
     gap:10px;
   }
 
+  /* --- 改善: タブデザイン --- */
+  .tabs-container {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(4px);
+    width: 100%;
+    border-bottom: 1px solid var(--stroke);
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+  }
   .tabs{
     display:flex;
-    gap:5px;
+    gap:8px;
     overflow-x:auto;
     width:100%;
     max-width:520px;
-    padding:5px 2px;
+    padding:2px;
+    scrollbar-width: none; /* Firefox */
   }
+  .tabs::-webkit-scrollbar{ display:none; } /* Chrome/Safari */
+
   .tab{
     flex:0 0 auto;
-    padding:8px 14px;
+    padding:8px 16px;
     border-radius:999px;
-    border:1px solid var(--stroke);
-    background:#fff;
+    border:1px solid #cbd5e1;
+    background:#f8fafc;
+    color: var(--muted);
     white-space:nowrap;
     font-size:12px;
     cursor:pointer;
     font-weight:800;
+    transition: all 0.2s ease;
   }
   .tab.active{
     background:var(--accent);
     color:#fff;
     border-color:var(--accent);
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.4);
+    transform: translateY(-1px);
   }
 
   /* Preview */
-  .stage{ width: min(96vw, 520px); display:flex; justify-content:center; }
+  .stage{ width: min(96vw, 520px); display:flex; justify-content:center; margin-top:10px; }
   .sheet-wrap{ transform: scale(var(--sheet-scale)); transform-origin: top center; width: var(--a4-w); }
   .sheet{
     width: var(--a4-w);
@@ -132,6 +152,9 @@
     font-size:14px;
     font-weight:1000;
     margin:0;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 4px;
+    display: inline-block;
   }
   .h1{ font-size:22px; font-weight:1000; margin:0; }
   .note{ font-size:11px; color:var(--muted); line-height:1.35; }
@@ -194,7 +217,9 @@
     background:#fff;
     min-height:16mm;
     cursor:pointer;
+    transition: background 0.1s;
   }
+  .box:active{ background:#f1f5f9; }
   .box.wide{ grid-column: 1 / -1; }
   .lbl{ font-size:10px; color:var(--muted); font-weight:900; }
   .val{ font-size:12px; white-space:pre-wrap; margin-top:2px; line-height:1.35; word-break:break-word; }
@@ -215,6 +240,7 @@
     align-items:center;
     justify-content:center;
     padding:20px;
+    backdrop-filter: blur(2px);
   }
   .modal.show{ display:flex; }
   .m-content{
@@ -222,25 +248,29 @@
     width:100%;
     max-width:520px;
     border-radius:15px;
-    padding:16px;
+    padding:20px;
     max-height:90vh;
     overflow-y:auto;
     box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    animation: popIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
+  @keyframes popIn{ from{transform:scale(0.9); opacity:0;} to{transform:scale(1); opacity:1;} }
+
   .m-content h3{
-    margin:0 0 10px 0;
-    font-size:14px;
+    margin:0 0 14px 0;
+    font-size:16px;
     font-weight:1000;
   }
-  textarea, input[type="text"]{
+  textarea, input[type="text"], input[type="date"]{
     width:100%;
-    padding:10px;
+    padding:12px;
     border-radius:10px;
     border:1px solid rgba(15,23,42,0.18);
     font-size:16px;
     font-family: inherit;
     outline:none;
   }
+  textarea:focus, input:focus{ border-color:var(--accent); }
   textarea{ min-height:140px; resize:vertical; }
 
   /* Photo editor */
@@ -303,10 +333,7 @@
     transition:0.25s;
   }
 
-  /* * 重要: PDF生成用のコンテナ
-   * visibility: hiddenやdisplay: noneはhtml2canvasでバグるため
-   * 「透明で最背面」に配置する
-   */
+  /* Export Host */
   #exportHost{
     position:fixed;
     top:0; left:0;
@@ -351,10 +378,10 @@
 <header>
   <div>
     <div class="hdr-title">サポートブック作成</div>
-    <div class="hdr-sub">PC=印刷 / スマホ=PDF保存・共有</div>
+    <div class="hdr-sub">PC=印刷 / スマホ=PDF保存</div>
   </div>
   <div class="hdr-right">
-    <button class="btn primary" id="btnPrintPdf">印刷 / PDF</button>
+    <button class="btn primary" id="btnPrintPdf">出力</button>
     <button class="btn" id="btnExport">保存</button>
     <button class="btn" id="btnImport">読込</button>
     <button class="btn" id="btnReset">リセット</button>
@@ -362,7 +389,9 @@
 </header>
 
 <main>
-  <div class="tabs" id="tabs"></div>
+  <div class="tabs-container">
+    <div class="tabs" id="tabs"></div>
+  </div>
   <div class="stage" id="stage"></div>
 </main>
 
@@ -448,8 +477,13 @@ function render(){
   state.pages.forEach((p, i) => {
     const b = document.createElement("div");
     b.className = `tab ${i===currentPage ? "active" : ""}`;
-    b.textContent = `${i+1}) ${p.title}`;
-    b.onclick = () => { currentPage = i; render(); };
+    b.textContent = `${i+1}. ${p.title}`;
+    b.onclick = () => {
+      currentPage = i;
+      render();
+      // タブが画面外にあればスクロール
+      b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    };
     tabsDiv.appendChild(b);
   });
 
@@ -495,7 +529,6 @@ function createPageDOM(idx, isExport){
     if(ph?.src){
       const img = document.createElement("img");
       img.src = ph.src;
-      // エクスポート時もこのtransformは維持でOK（html2canvasが解釈する）
       img.style.transform = `translate(${ph.x || 0}px, ${ph.y || 0}px) translate(-50%, -50%) rotate(${ph.r || 0}deg) scale(${ph.s || 1})`;
       d.appendChild(img);
     }else{
@@ -523,10 +556,21 @@ function createPageDOM(idx, isExport){
 
     const g = document.createElement("div");
     g.className = "infoGrid";
-    g.appendChild(box("更新日", f.updatedDate, "updatedDate"));
+    
+    // 更新日もカレンダー選択可能にする
+    const bUpdate = box("更新日", f.updatedDate, "updatedDate");
+    bUpdate.onclick = () => openDateModal(idx, "updatedDate", "更新日");
+    g.appendChild(bUpdate);
+
     g.appendChild(box("氏名", f.childName, "childName"));
     g.appendChild(box("愛称", f.nickname, "nickname"));
-    g.appendChild(box("生年月日", f.birth, "birth"));
+    
+    // --- 変更点: 生年月日はカレンダー選択 ---
+    const bBirth = box("生年月日", f.birth, "birth");
+    bBirth.onclick = () => openDateModal(idx, "birth", "生年月日");
+    g.appendChild(bBirth);
+    // ------------------------------------
+
     g.appendChild(box("年齢", f.age, "age"));
     g.appendChild(box("診断（任意）", f.diagnosis, "diagnosis"));
     g.appendChild(box("ひとこと（任意）", f.messageShort, "messageShort", true));
@@ -654,6 +698,45 @@ function createPageDOM(idx, isExport){
 const modal = document.getElementById("modal");
 const mContent = document.getElementById("m-content");
 const fileInput = document.getElementById("fileInput");
+
+// --- 変更点: 日付ピッカー用モーダル ---
+function openDateModal(pIdx, key, lbl){
+  let val = getByPath(state.pages[pIdx].fields, key) ?? "";
+  
+  // 既存の「YYYY年MM月DD日」形式からYYYY-MM-DDに変換を試みる（値が入っていれば）
+  let isoVal = "";
+  const m = val.match(/(\d{4}).(\d{1,2}).(\d{1,2})/);
+  if(m) {
+    isoVal = `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  }
+
+  mContent.innerHTML = `
+    <h3>${escapeHtml(lbl)}</h3>
+    <div class="note" style="margin-bottom:8px">カレンダーアイコンをタップして選択</div>
+    <input type="date" id="m-date" value="${isoVal}" style="font-size:18px; padding:12px;">
+    <div style="display:flex; gap:10px; margin-top:20px;">
+      <button class="btn primary" id="m-save-date" style="flex:1">決定</button>
+      <button class="btn" id="m-close" style="flex:1">閉じる</button>
+    </div>
+  `;
+  
+  document.getElementById("m-save-date").onclick = ()=>{
+    const dVal = document.getElementById("m-date").value;
+    if(dVal){
+      // YYYY-MM-DD を YYYY年M月D日 に変換して保存
+      const [y, m, d] = dVal.split("-");
+      const niceDate = `${y}年${parseInt(m)}月${parseInt(d)}日`;
+      setByPath(state.pages[pIdx].fields, key, niceDate);
+    } else {
+      // クリアされた場合
+      setByPath(state.pages[pIdx].fields, key, "");
+    }
+    closeModal();
+  };
+  document.getElementById("m-close").onclick = closeModal;
+  modal.classList.add("show");
+}
+// ------------------------------------
 
 function openTextModal(pIdx, key, lbl){
   const val = getByPath(state.pages[pIdx].fields, key) ?? "";
@@ -806,7 +889,7 @@ function attachGestures(){
 }
 
 /* =========================
-   PDF生成 / 印刷 (本気改善版)
+   PDF生成 / 印刷
 ========================= */
 const prog = document.getElementById("progress");
 const pText = document.getElementById("p-text");
@@ -843,7 +926,6 @@ async function printAllPages(){
   setTimeout(()=>{ try{ onAfter(); }catch(_){} }, 8000);
 }
 
-// PDF生成のコア処理
 async function generatePDFAllPages(){
   if(!window.html2canvas || !window.jspdf || !window.jspdf.jsPDF){
     alert("PDF生成機能の読み込みに失敗しました。リロードして再試行してください。");
@@ -854,17 +936,13 @@ async function generatePDFAllPages(){
   pSub.textContent = "処理を開始します...";
   pBar.style.width = "0%";
 
-  // 待機 (UI描画更新用)
   await sleep(100);
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("p", "mm", "a4");
-
-  // キャプチャ用コンテナ (visibility:hiddenではなく透明化して配置)
   const host = document.getElementById("exportHost");
   host.innerHTML = "";
   
-  // スケール調整: スマホはメモリ不足防止で少し抑える
   const scale = isMobile ? 2 : 2; 
 
   try {
@@ -872,10 +950,7 @@ async function generatePDFAllPages(){
       pText.textContent = `ページ ${i+1} / ${state.pages.length} を作成中...`;
       pBar.style.width = `${Math.round((i / state.pages.length) * 100)}%`;
 
-      // 1. DOM生成
       const pageDom = createPageDOM(i, true);
-      
-      // 2. 一時ラッパーに入れる（縮小表示のscaleは無効化し、等倍で配置）
       const wrap = document.createElement("div");
       wrap.style.width = "210mm";
       wrap.style.height = "297mm";
@@ -883,27 +958,22 @@ async function generatePDFAllPages(){
       wrap.appendChild(pageDom);
       host.appendChild(wrap);
 
-      // 3. 描画待ち
       await nextFrame();
-      await sleep(200); // 画像読み込み猶予
+      await sleep(200);
 
-      // 4. キャプチャ実行
-      // windowWidth/Heightを指定してレスポンシブ崩れを防ぐ
       const canvas = await html2canvas(wrap, {
         scale: scale,
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
-        windowWidth: 794, // A4 px at 96dpi
+        windowWidth: 794,
         windowHeight: 1123
       });
 
-      // 5. PDFに追加
       const imgData = canvas.toDataURL("image/jpeg", 0.9);
       if(i > 0) pdf.addPage();
       pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
 
-      // 6. メモリ開放
       host.innerHTML = "";
       canvas.width = 1; canvas.height = 1;
       await sleep(50);
@@ -922,11 +992,8 @@ async function generatePDFAllPages(){
   const fileName = `support_book_${new Date().toISOString().slice(0,10)}.pdf`;
   const blob = pdf.output("blob");
 
-  // ファイル共有・保存ロジック（ここが重要）
   try {
     const file = new File([blob], fileName, { type: "application/pdf" });
-    
-    // Web Share API (Mobile First)
     if(navigator.canShare && navigator.canShare({ files: [file] })){
       await navigator.share({
         files: [file],
@@ -934,11 +1001,9 @@ async function generatePDFAllPages(){
         text: "作成したサポートブックのPDFです。"
       });
     } else {
-      // フォールバック: 強制ダウンロード
       throw new Error("Share API unavailable");
     }
   } catch(e) {
-    // 共有APIが使えない、またはキャンセルされた場合はダウンロード
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

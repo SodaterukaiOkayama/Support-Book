@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>サポートブック（タブ内ページ送り版）</title>
+<title>サポートブック</title>
 
 <style>
   :root{
@@ -305,7 +305,7 @@ const TEMPLATE = {
       photo1:{ src:"", s:1, x:0, y:0, r:0, cap:"好きなもの" },
       photo2:{ src:"", s:1, x:0, y:0, r:0, cap:"安心グッズ" },
     }},
-    { id:"p2", title:"いいところ・好き", fields: {
+    { id:"p2", title:"長所・興味", fields: {
       strengths:"", interests:"", triggers:"", calming:"",
       photo1:{ src:"", s:1, x:0, y:0, r:0, cap:"得意なこと" },
       photo2:{ src:"", s:1, x:0, y:0, r:0, cap:"好きな場所" },
@@ -317,7 +317,7 @@ const TEMPLATE = {
       photo2:{ src:"", s:1, x:0, y:0, r:0, cap:"見本" },
       photo3:{ src:"", s:1, x:0, y:0, r:0, cap:"ルール" },
     }},
-    { id:"p4", title:"学校・配慮", fields: {
+    { id:"p4", title:"配慮いただきたいこと", fields: {
       sensory:"", life:"", learning:"",
       schoolArrival:"", schoolClass:"", schoolRecess:"", schoolDismissal:"",
       panicSigns:"", panicSupport:"",
@@ -546,7 +546,7 @@ function createPageBlocks(idx, isExport){
 
   if(p.id==="p1"){
     const h = document.createElement("div");
-    h.innerHTML = `<div class="h1">サポートブック</div><div class="note">学校・支援者の方へ：接し方のヒント</div>`;
+    h.innerHTML = `<div class="h1">サポートブック</div><div class="note">学校・支援者の方へ</div>`;
     blocks.push(wrap(h));
 
     const m = document.createElement("div");
@@ -562,14 +562,14 @@ function createPageBlocks(idx, isExport){
     g.appendChild(bUp);
 
     g.appendChild(box("氏名", f.childName, "childName", true));
-    g.appendChild(box("愛称", f.nickname, "nickname", true));
+    
 
     const bBi = box("生年月日", f.birth, "birth", true);
     bBi.onclick = () => openDateModal(idx, "birth", "生年月日");
     g.appendChild(bBi);
 
     g.appendChild(box("年齢", f.age, "age", true));
-    g.appendChild(box("診断（任意）", f.diagnosis, "diagnosis", true));
+    g.appendChild(box("診断名（任意）", f.diagnosis, "diagnosis", true));
     g.appendChild(box("ひとこと（任意）", f.messageShort, "messageShort", false));
 
     m.appendChild(g);
@@ -584,7 +584,7 @@ function createPageBlocks(idx, isExport){
   }
 
   else if(p.id==="p5"){
-    blocks.push(section("📝 場面別（事実＋対策）"));
+    blocks.push(section("📝 場面別のポイント"));
 
     const th = document.createElement("div");
     th.className = "table-wrap";
@@ -592,7 +592,7 @@ function createPageBlocks(idx, isExport){
     th.style.borderRadius = "10px 10px 0 0";
     th.innerHTML = `
       <div class="trow thead">
-        <div class="tcell">場面</div><div class="tcell">事実（困りごと）</div><div class="tcell">対応（お願い）</div>
+        <div class="tcell">場面</div><div class="tcell">困りポイント</div><div class="tcell">お願いしたいこと</div>
       </div>
     `;
     blocks.push(wrap(th));
@@ -657,13 +657,11 @@ function createPageBlocks(idx, isExport){
     if(p.id==="p2"){
       addField("強み", "strengths");
       addField("興味・好きなもの", "interests");
-      addField("苦手（事実）", "triggers");
-      addField("落ち着く方法（対策）", "calming");
     }
     if(p.id==="p3"){
       addField("理解しやすい伝え方", "understand");
       addField("本人の伝え方", "express");
-      addField("支援のヒント（具体）", "supportTips");
+      addField("家庭での伝え方", "supportTips");
     }
     if(p.id==="p4"){
       addField("感覚（音・光など）", "sensory");
@@ -1018,3 +1016,4 @@ render();
 </script>
 </body>
 </html>
+

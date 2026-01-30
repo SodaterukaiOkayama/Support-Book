@@ -317,7 +317,7 @@ const TEMPLATE = {
       photo2:{ src:"", s:1, x:0, y:0, r:0, cap:"見本" },
       photo3:{ src:"", s:1, x:0, y:0, r:0, cap:"ルール" },
     }},
-    { id:"p4", title:"配慮いただきたいこと", fields: {
+    { id:"p4", title:"ここで困るかも", fields: {
       sensory:"", life:"", learning:"",
       schoolArrival:"", schoolClass:"", schoolRecess:"", schoolDismissal:"",
       panicSigns:"", panicSupport:"",
@@ -641,7 +641,7 @@ function createPageBlocks(idx, isExport){
     let title = "";
     if(p.id==="p2") title = "🌟 いいところ・好きなこと";
     if(p.id==="p3") title = "📢 伝え方・コミュニケーション";
-    if(p.id==="p4") title = "🏫 学校生活 / 配慮ポイント";
+    if(p.id==="p4") title = "🏫 生活場面でここに困るかも…";
 
     blocks.push(section(title));
 
@@ -1016,4 +1016,3 @@ render();
 </script>
 </body>
 </html>
-

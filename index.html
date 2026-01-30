@@ -446,9 +446,6 @@ function paginateBlocks(blocks) {
   for (const block of blocks) {
     // overflow判定（現状ページに入るか）
     measInner.innerHTML = "";
-    // 既存の高さ再現：現ページの中身を簡易的にコピーせず、ブロック単体で「空ページに入るか」も見る
-    // ここでは「現ページに追加したら溢れるか」を見るため、現ページ内容の再現が必要だが重い。
-    // 代替として「現ページ内容 + 追加」を実測するため、現ページの子要素をcloneして入れる。
     for (const ch of Array.from(currentInner.children)) measInner.appendChild(ch.cloneNode(true));
     const probe = block.cloneNode(true);
     measInner.appendChild(probe);
@@ -576,7 +573,7 @@ function createPageBlocks(idx, isExport){
     g.appendChild(box("ひとこと（任意）", f.messageShort, "messageShort", false));
 
     m.appendChild(g);
-    blocks.push(wrap(m)); // ここは分割したいなら、写真と情報を別ブロックにする
+    blocks.push(wrap(m));
 
     blocks.push(section("写真（好きなもの・安心グッズなど）"));
     const row = document.createElement("div");
@@ -768,16 +765,20 @@ function openPhotoModal(pIdx, key){
     </div>
     <div style="margin-top:10px;">
       <input type="text" id="e-cap" value="${escapeHtml(ph.cap || "")}" placeholder="キャプション">
+      <div style="margin-top:8px; font-size:12px; color:rgba(15,23,42,0.64); font-weight:800;">操作：ドラッグ移動 / ピンチで拡大縮小 / 回転は90°ずつ</div>
     </div>
   `;
   modal.classList.add("show");
+
   document.getElementById("e-pick").onclick = ()=> fileInput.click();
   document.getElementById("e-rot").onclick = ()=>{ ph.r = ((ph.r||0)+90)%360; syncEditor(); };
   document.getElementById("e-del").onclick = ()=>{ ph.src=""; ph.s=1; ph.x=0; ph.y=0; ph.r=0; syncEditor(true); };
   document.getElementById("e-done").onclick = ()=>{ ph.cap = document.getElementById("e-cap").value; closeModal(); };
-  attachGestures();
+
+  attachGestures();   // ★ここでピンチ対応版をセット
   syncEditor();
 }
+
 fileInput.onchange = (e)=>{
   const f = e.target.files && e.target.files[0];
   if(!f) return;
@@ -790,17 +791,89 @@ fileInput.onchange = (e)=>{
   reader.readAsDataURL(f);
   fileInput.value = "";
 };
+
 function syncEditor(noImg){
   const img = document.getElementById("e-img");
-  if(img && !noImg) img.style.transform = `translate(${phCtx.ph.x||0}px, ${phCtx.ph.y||0}px) translate(-50%, -50%) rotate(${phCtx.ph.r||0}deg) scale(${phCtx.ph.s||1})`;
+  if(img && !noImg){
+    img.style.transform =
+      `translate(${phCtx.ph.x||0}px, ${phCtx.ph.y||0}px) translate(-50%, -50%) rotate(${phCtx.ph.r||0}deg) scale(${phCtx.ph.s||1})`;
+  }
 }
+
+/* ★修正点：ピンチ拡大縮小を追加（ここだけ差し替え） */
 function attachGestures(){
-  const c = document.getElementById("canvas");
-  if(!c) return;
-  let drag=false, sx=0, sy=0, bx=0, by=0;
-  c.onpointerdown = (e)=>{ if(!phCtx?.ph?.src) return; drag=true; c.setPointerCapture(e.pointerId); sx=e.clientX; sy=e.clientY; bx=phCtx.ph.x||0; by=phCtx.ph.y||0; };
-  c.onpointermove = (e)=>{ if(!drag) return; phCtx.ph.x = bx+(e.clientX-sx); phCtx.ph.y = by+(e.clientY-sy); syncEditor(); };
-  c.onpointerup = ()=> drag=false;
+  const canvas = document.getElementById("canvas");
+  if(!canvas) return;
+
+  // ドラッグ移動（pointer）
+  let dragging = false;
+  let startX=0, startY=0, baseX=0, baseY=0;
+
+  canvas.onpointerdown = (e)=>{
+    if(!phCtx?.ph?.src) return;
+    dragging = true;
+    canvas.setPointerCapture(e.pointerId);
+    startX = e.clientX;
+    startY = e.clientY;
+    baseX = phCtx.ph.x || 0;
+    baseY = phCtx.ph.y || 0;
+  };
+  canvas.onpointermove = (e)=>{
+    if(!dragging) return;
+    phCtx.ph.x = baseX + (e.clientX - startX);
+    phCtx.ph.y = baseY + (e.clientY - startY);
+    syncEditor();
+  };
+  canvas.onpointerup = ()=> dragging = false;
+  canvas.onpointercancel = ()=> dragging = false;
+
+  // ピンチ拡大縮小（touch）
+  let pinch = null;
+  const touches = new Map(); // id -> {x,y}
+
+  const dist = (a,b)=> Math.hypot(a.x-b.x, a.y-b.y);
+  const clamp = (v,min,max)=> Math.min(max, Math.max(min, v));
+
+  canvas.addEventListener("touchstart", (e)=>{
+    if(!phCtx?.ph?.src) return;
+    for(const t of e.changedTouches){
+      touches.set(t.identifier, {x:t.clientX, y:t.clientY});
+    }
+    if(touches.size === 2){
+      const pts = [...touches.values()];
+      pinch = { d0: dist(pts[0], pts[1]), s0: phCtx.ph.s || 1 };
+    }
+  }, {passive:false});
+
+  canvas.addEventListener("touchmove", (e)=>{
+    if(!pinch || touches.size !== 2) return;
+    e.preventDefault(); // 画面スクロール抑止
+    for(const t of e.changedTouches){
+      touches.set(t.identifier, {x:t.clientX, y:t.clientY});
+    }
+    const pts = [...touches.values()];
+    const d = dist(pts[0], pts[1]);
+    const ns = clamp(pinch.s0 * (d / Math.max(1, pinch.d0)), 0.5, 3.0);
+    phCtx.ph.s = ns;
+    syncEditor();
+  }, {passive:false});
+
+  canvas.addEventListener("touchend", (e)=>{
+    for(const t of e.changedTouches){
+      touches.delete(t.identifier);
+    }
+    if(touches.size < 2){
+      pinch = null;
+    }else if(touches.size === 2){
+      const pts = [...touches.values()];
+      pinch = { d0: dist(pts[0], pts[1]), s0: phCtx.ph.s || 1 };
+    }
+  });
+
+  canvas.addEventListener("touchcancel", ()=>{
+    touches.clear();
+    pinch = null;
+  });
 }
 
 /* =========================

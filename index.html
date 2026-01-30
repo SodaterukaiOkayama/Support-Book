@@ -273,10 +273,10 @@
   }
   .controls .btn{ padding:10px 8px; font-size:12px; }
 
-  /* Progress overlay (good part from your code) */
+  /* Progress overlay */
   #progress{
     position:fixed; inset:0;
-    background:rgba(0,0,0,0.82);
+    background:rgba(0,0,0,0.85);
     color:#fff;
     display:none;
     flex-direction:column;
@@ -303,15 +303,18 @@
     transition:0.25s;
   }
 
-  /* Hidden export container */
+  /* * 重要: PDF生成用のコンテナ
+   * visibility: hiddenやdisplay: noneはhtml2canvasでバグるため
+   * 「透明で最背面」に配置する
+   */
   #exportHost{
-    position:absolute;
-    left:-99999px;
-    top:0;
-    width: var(--a4-w);
-    height:auto;
-    visibility:hidden;
+    position:fixed;
+    top:0; left:0;
+    z-index:-9999;
+    opacity:0;
     pointer-events:none;
+    width:var(--a4-w);
+    height:auto;
   }
 
   /* Print CSS */
@@ -348,7 +351,7 @@
 <header>
   <div>
     <div class="hdr-title">サポートブック作成</div>
-    <div class="hdr-sub">PC=印刷 / スマホ=PDF保存・共有（1ボタン）</div>
+    <div class="hdr-sub">PC=印刷 / スマホ=PDF保存・共有</div>
   </div>
   <div class="hdr-right">
     <button class="btn primary" id="btnPrintPdf">印刷 / PDF</button>
@@ -383,9 +386,9 @@
 
 <script>
 /* =========================
-   基本
+   基本データ・設定
 ========================= */
-const STORAGE_KEY = "support_book_pdf_stable_v2";
+const STORAGE_KEY = "support_book_pdf_stable_v3";
 
 const TEMPLATE = {
   pages: [
@@ -431,12 +434,13 @@ const TEMPLATE = {
   ]
 };
 
+// スマホ判定
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 let state = loadState();
 let currentPage = 0;
 
 /* =========================
-   描画
+   描画ロジック
 ========================= */
 function render(){
   const tabsDiv = document.getElementById("tabs");
@@ -491,6 +495,7 @@ function createPageDOM(idx, isExport){
     if(ph?.src){
       const img = document.createElement("img");
       img.src = ph.src;
+      // エクスポート時もこのtransformは維持でOK（html2canvasが解釈する）
       img.style.transform = `translate(${ph.x || 0}px, ${ph.y || 0}px) translate(-50%, -50%) rotate(${ph.r || 0}deg) scale(${ph.s || 1})`;
       d.appendChild(img);
     }else{
@@ -506,7 +511,7 @@ function createPageDOM(idx, isExport){
     return d;
   };
 
-  /* p1 */
+  /* コンテンツ生成 */
   if(p.id==="p1"){
     const h = document.createElement("div");
     h.innerHTML = `<div class="h1">サポートブック</div><div class="note">学校・支援者の方へ：接し方のヒント</div>`;
@@ -514,7 +519,6 @@ function createPageDOM(idx, isExport){
 
     const m = document.createElement("div");
     m.className = "meta";
-
     m.appendChild(photo(f.photoMain, "photoMain", "large"));
 
     const g = document.createElement("div");
@@ -527,7 +531,6 @@ function createPageDOM(idx, isExport){
     g.appendChild(box("診断（任意）", f.diagnosis, "diagnosis"));
     g.appendChild(box("ひとこと（任意）", f.messageShort, "messageShort", true));
     m.appendChild(g);
-
     inner.appendChild(m);
 
     inner.appendChild(section("写真（好きなもの・安心グッズなど）"));
@@ -538,7 +541,6 @@ function createPageDOM(idx, isExport){
     inner.appendChild(row);
   }
 
-  /* p2 */
   if(p.id==="p2"){
     inner.appendChild(section("🌟 いいところ・好きなこと"));
     const row = document.createElement("div");
@@ -547,14 +549,12 @@ function createPageDOM(idx, isExport){
     row.appendChild(photo(f.photo2, "photo2", "small"));
     row.appendChild(photo(f.photo3, "photo3", "small"));
     inner.appendChild(row);
-
     inner.appendChild(box("強み", f.strengths, "strengths", true));
     inner.appendChild(box("興味・好きなもの", f.interests, "interests", true));
     inner.appendChild(box("苦手（事実）", f.triggers, "triggers", true));
     inner.appendChild(box("落ち着く方法（対策）", f.calming, "calming", true));
   }
 
-  /* p3 */
   if(p.id==="p3"){
     inner.appendChild(section("📢 伝え方・コミュニケーション"));
     const row = document.createElement("div");
@@ -563,13 +563,11 @@ function createPageDOM(idx, isExport){
     row.appendChild(photo(f.photo2, "photo2", "small"));
     row.appendChild(photo(f.photo3, "photo3", "small"));
     inner.appendChild(row);
-
     inner.appendChild(box("理解しやすい伝え方", f.understand, "understand", true));
     inner.appendChild(box("本人の伝え方", f.express, "express", true));
     inner.appendChild(box("支援のヒント（具体）", f.supportTips, "supportTips", true));
   }
 
-  /* p4 */
   if(p.id==="p4"){
     inner.appendChild(section("🏫 学校生活 / 配慮ポイント"));
     const row = document.createElement("div");
@@ -578,7 +576,6 @@ function createPageDOM(idx, isExport){
     row.appendChild(photo(f.photo2, "photo2", "small"));
     row.appendChild(photo(f.photo3, "photo3", "small"));
     inner.appendChild(row);
-
     inner.appendChild(box("感覚（音・光など）", f.sensory, "sensory", true));
     inner.appendChild(box("生活（トイレ・給食など）", f.life, "life", true));
     inner.appendChild(box("学習（作業・板書など）", f.learning, "learning", true));
@@ -590,10 +587,8 @@ function createPageDOM(idx, isExport){
     inner.appendChild(box("対応（対策）", f.panicSupport, "panicSupport", true));
   }
 
-  /* p5 */
   if(p.id==="p5"){
     inner.appendChild(section("📝 場面別（事実＋対策）"));
-
     const t = document.createElement("div");
     t.className = "table";
     t.innerHTML = `
@@ -613,7 +608,6 @@ function createPageDOM(idx, isExport){
     });
     inner.appendChild(t);
 
-    // 行追加/削除（エクスポート時は非表示）
     if(!isExport){
       const ctl = document.createElement("div");
       ctl.style.display = "flex";
@@ -637,7 +631,6 @@ function createPageDOM(idx, isExport){
     row.appendChild(photo(f.photo2, "photo2", "small"));
     row.appendChild(photo(f.photo3, "photo3", "small"));
     inner.appendChild(row);
-
     inner.appendChild(section("✉️ 先生へのメッセージ"));
     inner.appendChild(box("メッセージ", f.teacherMessage, "teacherMessage", true));
   }
@@ -656,7 +649,7 @@ function createPageDOM(idx, isExport){
 }
 
 /* =========================
-   テキストモーダル（提示コードの良い構造：dot-path対応）
+   モーダル・編集機能
 ========================= */
 const modal = document.getElementById("modal");
 const mContent = document.getElementById("m-content");
@@ -687,11 +680,7 @@ function closeModal(){
   render();
 }
 
-/* =========================
-   写真編集（回転90度 / ピンチ拡大縮小 / ドラッグ移動）
-   ※提示コードのUI要素＋先ほどの“ピンチ”を融合
-========================= */
-let phCtx = null; // {pIdx, key, ph}
+let phCtx = null;
 let pinch = null;
 let touches = new Map();
 
@@ -701,24 +690,20 @@ function openPhotoModal(pIdx, key){
 
   mContent.innerHTML = `
     <h3>写真編集</h3>
-
     <div class="editor-canvas" id="canvas">
       ${ph.src ? `<img id="e-img" src="${ph.src}" alt="">` : `<div style="color:#cbd5e1; text-align:center; padding-top:110px; font-weight:900;">写真がありません</div>`}
     </div>
-
     <div class="controls">
       <button class="btn" id="e-pick">📸 選択</button>
       <button class="btn" id="e-rot">🔄 回転</button>
       <button class="btn" id="e-del">🗑 削除</button>
       <button class="btn" id="e-done">✅ 完了</button>
     </div>
-
     <div style="margin-top:10px;">
-      <input type="text" id="e-cap" value="${escapeHtml(ph.cap || "")}" placeholder="キャプション（例：教室／安心グッズなど）">
+      <input type="text" id="e-cap" value="${escapeHtml(ph.cap || "")}" placeholder="キャプション">
       <div class="note" style="margin-top:8px;">操作：ドラッグで移動／ピンチで拡大縮小／回転は90°ずつ</div>
     </div>
   `;
-
   modal.classList.add("show");
 
   document.getElementById("e-pick").onclick = ()=> fileInput.click();
@@ -743,7 +728,7 @@ function openPhotoModal(pIdx, key){
     reader.onload = (ev)=>{
       ph.src = ev.target.result;
       ph.s = 1; ph.x = 0; ph.y = 0; ph.r = 0;
-      openPhotoModal(pIdx, key); // 再描画（提示コード方式）
+      openPhotoModal(pIdx, key);
     };
     reader.readAsDataURL(f);
     fileInput.value = "";
@@ -758,7 +743,6 @@ function syncEditor(forceNoImg){
   const img = document.getElementById("e-img");
   if(!img) return;
   if(forceNoImg) return;
-
   img.style.transform = `translate(${ph.x || 0}px, ${ph.y || 0}px) translate(-50%, -50%) rotate(${ph.r || 0}deg) scale(${ph.s || 1})`;
 }
 
@@ -768,7 +752,6 @@ function attachGestures(){
   touches.clear();
   pinch = null;
 
-  // ドラッグ移動（pointerで統一）
   let dragging = false;
   let startX = 0, startY = 0;
   let baseX = 0, baseY = 0;
@@ -791,7 +774,6 @@ function attachGestures(){
   canvas.onpointerup = ()=> dragging = false;
   canvas.onpointercancel = ()=> dragging = false;
 
-  // ピンチ拡大縮小（touch）
   canvas.addEventListener("touchstart", (e)=>{
     if(!phCtx?.ph?.src || !img) return;
     for(const t of e.changedTouches) touches.set(t.identifier, {x:t.clientX, y:t.clientY});
@@ -820,15 +802,11 @@ function attachGestures(){
       pinch = { d0: dist(pts[0], pts[1]), s0: phCtx.ph.s || 1 };
     }
   });
-
-  canvas.addEventListener("touchcancel", ()=>{
-    touches.clear();
-    pinch = null;
-  });
+  canvas.addEventListener("touchcancel", ()=>{ touches.clear(); pinch = null; });
 }
 
 /* =========================
-   印刷 / PDF（提示コードのPDFエンジンを採用）
+   PDF生成 / 印刷 (本気改善版)
 ========================= */
 const prog = document.getElementById("progress");
 const pText = document.getElementById("p-text");
@@ -836,7 +814,6 @@ const pSub  = document.getElementById("p-sub");
 const pBar  = document.getElementById("p-bar");
 
 document.getElementById("btnPrintPdf").onclick = async ()=>{
-  // PCは印刷、スマホはPDF生成（同一ボタン）
   if(!isMobile){
     await printAllPages();
   }else{
@@ -845,19 +822,17 @@ document.getElementById("btnPrintPdf").onclick = async ()=>{
 };
 
 async function printAllPages(){
-  // 印刷用DOMを構築（全ページ）
   const ph = document.getElementById("printHost");
   ph.innerHTML = "";
   state.pages.forEach((_, i)=>{
     const wrap = document.createElement("div");
     wrap.className = "sheet-wrap";
-    wrap.style.transform = "none";
+    wrap.style.transform = "none"; 
     wrap.appendChild(createPageDOM(i, true));
     ph.appendChild(wrap.firstChild);
   });
   ph.style.display = "block";
 
-  // afterprintで掃除（来ない環境もあるので保険）
   const onAfter = ()=>{
     window.removeEventListener("afterprint", onAfter);
     ph.style.display = "none";
@@ -868,81 +843,118 @@ async function printAllPages(){
   setTimeout(()=>{ try{ onAfter(); }catch(_){} }, 8000);
 }
 
+// PDF生成のコア処理
 async function generatePDFAllPages(){
   if(!window.html2canvas || !window.jspdf || !window.jspdf.jsPDF){
-    alert("PDF生成ライブラリの読み込みに失敗しました。通信状況をご確認ください。");
+    alert("PDF生成機能の読み込みに失敗しました。リロードして再試行してください。");
     return;
   }
 
   prog.style.display = "flex";
-  pSub.textContent = "画像が多いと時間がかかります";
+  pSub.textContent = "処理を開始します...";
   pBar.style.width = "0%";
+
+  // 待機 (UI描画更新用)
+  await sleep(100);
 
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("p", "mm", "a4");
 
+  // キャプチャ用コンテナ (visibility:hiddenではなく透明化して配置)
   const host = document.getElementById("exportHost");
   host.innerHTML = "";
+  
+  // スケール調整: スマホはメモリ不足防止で少し抑える
+  const scale = isMobile ? 2 : 2; 
 
-  // 端末負荷を考慮しつつ鮮明さも確保
-  const scale = isMobile ? 1.8 : 2.0;
+  try {
+    for(let i=0; i<state.pages.length; i++){
+      pText.textContent = `ページ ${i+1} / ${state.pages.length} を作成中...`;
+      pBar.style.width = `${Math.round((i / state.pages.length) * 100)}%`;
 
-  for(let i=0; i<state.pages.length; i++){
-    pText.textContent = `ページ ${i+1} / ${state.pages.length} を作成中...`;
-    pBar.style.width = `${Math.round((i / state.pages.length) * 100)}%`;
+      // 1. DOM生成
+      const pageDom = createPageDOM(i, true);
+      
+      // 2. 一時ラッパーに入れる（縮小表示のscaleは無効化し、等倍で配置）
+      const wrap = document.createElement("div");
+      wrap.style.width = "210mm";
+      wrap.style.height = "297mm";
+      wrap.style.background = "#ffffff";
+      wrap.appendChild(pageDom);
+      host.appendChild(wrap);
 
-    const pageDom = createPageDOM(i, true);
-    host.appendChild(pageDom);
+      // 3. 描画待ち
+      await nextFrame();
+      await sleep(200); // 画像読み込み猶予
 
-    // 描画待機（提示コードの良いところ：待ってから撮る）
-    await nextFrame();
-    await sleep(220);
+      // 4. キャプチャ実行
+      // windowWidth/Heightを指定してレスポンシブ崩れを防ぐ
+      const canvas = await html2canvas(wrap, {
+        scale: scale,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        windowWidth: 794, // A4 px at 96dpi
+        windowHeight: 1123
+      });
 
-    const canvas = await html2canvas(pageDom, {
-      scale,
-      useCORS: true,
-      backgroundColor: "#ffffff",
-      logging: false
-    });
+      // 5. PDFに追加
+      const imgData = canvas.toDataURL("image/jpeg", 0.9);
+      if(i > 0) pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
 
-    const imgData = canvas.toDataURL("image/jpeg", 0.92);
-    if(i > 0) pdf.addPage();
-    pdf.addImage(imgData, "JPEG", 0, 0, 210, 297, undefined, "FAST");
-
-    // 次ページへ：DOMを空にしてメモリ節約
-    host.innerHTML = "";
-    canvas.width = 1; canvas.height = 1;
-    await sleep(60);
+      // 6. メモリ開放
+      host.innerHTML = "";
+      canvas.width = 1; canvas.height = 1;
+      await sleep(50);
+    }
+  } catch(e) {
+    console.error(e);
+    alert("PDF作成中にエラーが発生しました。\n画像のサイズを小さくすると改善する場合があります。");
+    prog.style.display = "none";
+    return;
   }
 
   pBar.style.width = "100%";
-  pText.textContent = "PDFを準備しています...";
+  pText.textContent = "ファイルを準備しています...";
+  await sleep(100);
 
-  const blob = pdf.output("blob");
   const fileName = `support_book_${new Date().toISOString().slice(0,10)}.pdf`;
-  const file = new File([blob], fileName, { type: "application/pdf" });
+  const blob = pdf.output("blob");
 
-  // スマホ：共有（保存先選択が出やすい）
-  if(navigator.canShare && navigator.canShare({ files:[file] }) && navigator.share){
-    try{
-      await navigator.share({ files:[file], title:"サポートブック" });
-      prog.style.display = "none";
-      return;
-    }catch(e){
-      // キャンセル等 → フォールバック
+  // ファイル共有・保存ロジック（ここが重要）
+  try {
+    const file = new File([blob], fileName, { type: "application/pdf" });
+    
+    // Web Share API (Mobile First)
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      await navigator.share({
+        files: [file],
+        title: "サポートブック",
+        text: "作成したサポートブックのPDFです。"
+      });
+    } else {
+      // フォールバック: 強制ダウンロード
+      throw new Error("Share API unavailable");
     }
+  } catch(e) {
+    // 共有APIが使えない、またはキャンセルされた場合はダウンロード
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 60000);
   }
-
-  // フォールバック：タブで開く（保存）
-  const url = URL.createObjectURL(blob);
-  window.open(url, "_blank");
-  setTimeout(()=>URL.revokeObjectURL(url), 60000);
 
   prog.style.display = "none";
 }
 
+
 /* =========================
-   保存/読込/リセット
+   保存/読込/State
 ========================= */
 document.getElementById("btnExport").onclick = exportJSON;
 document.getElementById("btnImport").onclick = importJSON;
@@ -977,39 +989,29 @@ function importJSON(){
       render();
       alert("読み込みました。");
     }catch(err){
-      alert("読み込みに失敗しました（JSON形式を確認してください）。");
+      alert("読み込みに失敗しました。JSONファイルか確認してください。");
     }
   };
   input.click();
 }
 
-/* =========================
-   State / Utility
-========================= */
 function persist(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
 function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const obj = JSON.parse(raw);
-      return normalizeState(obj);
-    }
+    if(raw) return normalizeState(JSON.parse(raw));
   }catch(e){}
   return clone(TEMPLATE);
 }
 function normalizeState(obj){
-  // 乱れたJSONでもテンプレに寄せて復元
   const out = clone(TEMPLATE);
   if(!obj || !Array.isArray(obj.pages)) return out;
-
   out.pages.forEach(tp=>{
     const sp = obj.pages.find(p=>p.id===tp.id);
     if(!sp || !sp.fields) return;
-
     Object.keys(tp.fields).forEach(k=>{
       const tv = tp.fields[k];
       const sv = sp.fields[k];
-
       if(typeof tv === "string"){
         if(typeof sv === "string") tp.fields[k] = sv;
         return;
@@ -1036,7 +1038,6 @@ function normalizeState(obj){
       }
     });
   });
-
   return out;
 }
 
@@ -1066,13 +1067,11 @@ function escapeHtml(s){
   }[m]));
 }
 function clone(x){ return JSON.parse(JSON.stringify(x)); }
-
 function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
 function nextFrame(){ return new Promise(r=>requestAnimationFrame(()=>r())); }
 function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
 function clamp(v,min,max){ return Math.min(max, Math.max(min, v)); }
 
-/* Init */
 render();
 </script>
 </body>
